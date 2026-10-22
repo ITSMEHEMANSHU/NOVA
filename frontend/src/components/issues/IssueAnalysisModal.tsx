@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { IssueItem, IssueAnalysisResponse } from '@/types';
-import { analyzeIssue } from '@/lib/api';
+import { IssueItem, IssueAnalysisResponse, IssueActivityDetails } from '@/types';
+import { analyzeIssue, getIssueActivity } from '@/lib/api';
 import {
   Sparkles,
   CheckCircle,
@@ -13,6 +13,10 @@ import {
   HelpCircle,
   Code2,
   ListOrdered,
+  Users,
+  GitPullRequest,
+  ShieldCheck,
+  MessageSquare,
 } from 'lucide-react';
 
 interface IssueAnalysisModalProps {
@@ -34,6 +38,10 @@ export default function IssueAnalysisModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Live contributor activity state
+  const [activity, setActivity] = useState<IssueActivityDetails | null>(null);
+  const [activityLoading, setActivityLoading] = useState(true);
+
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -48,6 +56,22 @@ export default function IssueAnalysisModal({
         if (mounted) {
           setError(err.message || 'Analysis failed');
           setLoading(false);
+        }
+      });
+
+    // Fetch live issue worker / assignee / PR activity
+    setActivityLoading(true);
+    getIssueActivity(owner, repo, issue.number)
+      .then((act) => {
+        if (mounted) {
+          setActivity(act);
+          setActivityLoading(false);
+        }
+      })
+      .catch((e) => {
+        console.warn('Failed to load issue activity:', e);
+        if (mounted) {
+          setActivityLoading(false);
         }
       });
 
@@ -80,6 +104,172 @@ export default function IssueAnalysisModal({
 
         {/* Content body */}
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 bg-white">
+          {/* ========================================================
+              LIVE CONTRIBUTOR & WORKER ACTIVITY STATUS
+              ======================================================== */}
+          {activityLoading ? (
+            <div className="p-3.5 bg-slate-100 border-2 border-black flex items-center justify-between animate-pulse">
+              <div className="flex items-center space-x-2 text-xs font-bold text-slate-700">
+                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                <span>Checking if existing contributors are working on issue #{issue.number}...</span>
+              </div>
+            </div>
+          ) : activity ? (
+            <div
+              className={`border-2 border-black p-4 brutal-shadow-sm font-mono ${
+                activity.has_active_workers
+                  ? 'bg-[#FEF3C7] text-black'
+                  : 'bg-[#D5F5EF] text-black'
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-black/20 pb-2.5 mb-2.5">
+                <div className="flex items-center space-x-2">
+                  {activity.has_active_workers ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-black text-[#FEF3C7] text-xs font-black uppercase tracking-wider">
+                      <Users className="w-3.5 h-3.5" />
+                      <span>{activity.status_badge.replace(/_/g, ' ')}</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-black text-[#D5F5EF] text-xs font-black uppercase tracking-wider">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>UNASSIGNED • AVAILABLE TO WORK</span>
+                    </span>
+                  )}
+                  <span className="text-xs font-black text-black hidden sm:inline">
+                    // Contributor Activity Status
+                  </span>
+                </div>
+
+                <a
+                  href={`https://github.com/${owner}/${repo}/issues/${issue.number}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-black hover:underline shrink-0"
+                >
+                  <span>View Issue #{issue.number} on GitHub</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+
+              <p className="text-xs sm:text-sm font-sans font-semibold text-slate-900 leading-relaxed mb-3">
+                {activity.status_summary}
+              </p>
+
+              {/* Active assignees details */}
+              {activity.assignees.length > 0 && (
+                <div className="mb-3 space-y-1.5">
+                  <div className="text-[11px] font-black uppercase text-slate-800 tracking-wider">
+                    Assigned Contributor{activity.assignees.length > 1 ? 's' : ''}:
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {activity.assignees.map((a) => (
+                      <a
+                        key={a.login}
+                        href={a.html_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 bg-white border-2 border-black px-2.5 py-1 text-xs font-black hover:bg-black hover:text-[#72C7E8] transition-colors"
+                      >
+                        {a.avatar_url && (
+                          <img src={a.avatar_url} alt={a.login} className="w-4 h-4 rounded-full border border-black" />
+                        )}
+                        <span>@{a.login}</span>
+                        <ExternalLink className="w-3 h-3 opacity-60" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Linked Pull Requests */}
+              {activity.linked_prs.length > 0 && (
+                <div className="mb-3 space-y-1.5">
+                  <div className="text-[11px] font-black uppercase text-slate-800 tracking-wider flex items-center gap-1.5">
+                    <GitPullRequest className="w-3.5 h-3.5" />
+                    <span>Linked Pull Request{activity.linked_prs.length > 1 ? 's' : ''} Addressing This Issue:</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {activity.linked_prs.map((pr) => (
+                      <a
+                        key={pr.number}
+                        href={pr.html_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-2 bg-white border-2 border-black hover:bg-[#DCEFFD] text-xs font-bold transition-colors group"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={`text-[10px] font-black px-1.5 py-0.5 border border-black uppercase ${
+                              pr.state === 'open'
+                                ? 'bg-[#D5F5EF] text-emerald-900'
+                                : pr.state === 'merged'
+                                ? 'bg-purple-100 text-purple-900'
+                                : 'bg-slate-200 text-slate-800'
+                            }`}
+                          >
+                            {pr.state}
+                          </span>
+                          <span className="font-mono font-black text-black">PR #{pr.number}</span>
+                          <span className="truncate font-sans text-slate-800 group-hover:text-black">
+                            {pr.title}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2 text-[11px] text-slate-600 font-sans">
+                          <span>by @{pr.author_login}</span>
+                          <ExternalLink className="w-3 h-3 text-black" />
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Discussion Intent / Claims */}
+              {activity.recent_claims.length > 0 && (
+                <div className="mb-2 space-y-1.5">
+                  <div className="text-[11px] font-black uppercase text-slate-800 tracking-wider flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>Contributor Intent in Discussion:</span>
+                  </div>
+                  <div className="space-y-1">
+                    {activity.recent_claims.map((claim, idx) => (
+                      <div key={idx} className="p-2 bg-white border border-black text-xs font-sans">
+                        <div className="flex items-center justify-between font-bold text-slate-900 mb-1">
+                          <span>@{claim.author_login}</span>
+                          {claim.html_url && (
+                            <a href={claim.html_url} target="_blank" rel="noopener noreferrer" className="text-[11px] hover:underline flex items-center gap-1">
+                              View comment <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          )}
+                        </div>
+                        <p className="text-slate-700 italic line-clamp-2">
+                          &quot;{claim.comment_body}&quot;
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Guidance footer */}
+              {activity.has_active_workers ? (
+                <div className="mt-2.5 pt-2 border-t border-black/20 text-[11px] font-sans font-bold text-amber-950 flex items-center gap-1.5">
+                  <span>💡</span>
+                  <span>
+                    Another contributor is already working on or assigned to this issue. To avoid duplicate effort, coordinate on GitHub before writing code.
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-2.5 pt-2 border-t border-black/20 text-[11px] font-sans font-bold text-emerald-950 flex items-center gap-1.5">
+                  <span>🚀</span>
+                  <span>
+                    No one is working on this issue right now. You can comment on GitHub to claim it and follow the step-by-step plan below!
+                  </span>
+                </div>
+              )}
+            </div>
+          ) : null}
+
           {loading && (
             <div className="py-16 text-center space-y-3">
               <div className="w-8 h-8 border-3 border-black border-t-transparent rounded-full animate-spin mx-auto" />

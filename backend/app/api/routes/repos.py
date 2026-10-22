@@ -8,10 +8,10 @@ from app.graph.builder import graph_builder
 from app.background.orchestrator import trigger_repo_preparation
 from app.schemas.repository import RepositoryOverview, RepoSectionStatus, Contributor, PullRequest, PaginatedPullsResponse
 from app.schemas.graph import ArchitectureGraph
-from app.schemas.issues import IssueItem, PaginatedIssuesResponse
+from app.schemas.issues import IssueItem, PaginatedIssuesResponse, IssueAssignee, IssueActivityDetails
 from app.agent.services.gemma_service import gemma_service
 
-logger = logging.getLogger("oss_compass.repos")
+logger = logging.getLogger("nova.repos")
 router = APIRouter(prefix="/repositories", tags=["Repositories"])
 
 @router.post("/{owner}/{repo}/prepare")
@@ -167,6 +167,18 @@ async def get_repository_issues(
             is_gfi = any("good first issue" in l.lower() for l in labels)
             is_hw = any("help wanted" in l.lower() for l in labels)
             
+            raw_assignees = item.get("assignees") or []
+            if not raw_assignees and item.get("assignee"):
+                raw_assignees = [item["assignee"]]
+            assignees = [
+                IssueAssignee(
+                    login=a.get("login", ""),
+                    avatar_url=a.get("avatar_url", ""),
+                    html_url=a.get("html_url", f"https://github.com/{a.get('login', '')}")
+                )
+                for a in raw_assignees if isinstance(a, dict) and a.get("login")
+            ]
+
             # Grounded difficulty assessment
             difficulty = await gemma_service.assess_issue_difficulty(
                 title=item["title"],
@@ -189,7 +201,8 @@ async def get_repository_issues(
                 comments_count=item.get("comments", 0),
                 is_good_first_issue=is_gfi,
                 is_help_wanted=is_hw,
-                difficulty=difficulty
+                difficulty=difficulty,
+                assignees=assignees
             ))
 
         total_pages = max(1, math.ceil(total_count / per_page))
@@ -215,6 +228,18 @@ async def get_repository_issue(owner: str, repo: str, issue_number: int):
         is_gfi = any("good first issue" in l.lower() for l in labels)
         is_hw = any("help wanted" in l.lower() for l in labels)
         
+        raw_assignees = item.get("assignees") or []
+        if not raw_assignees and item.get("assignee"):
+            raw_assignees = [item["assignee"]]
+        assignees = [
+            IssueAssignee(
+                login=a.get("login", ""),
+                avatar_url=a.get("avatar_url", ""),
+                html_url=a.get("html_url", f"https://github.com/{a.get('login', '')}")
+            )
+            for a in raw_assignees if isinstance(a, dict) and a.get("login")
+        ]
+
         difficulty = await gemma_service.assess_issue_difficulty(
             title=item["title"],
             body=item.get("body") or "",
@@ -236,8 +261,23 @@ async def get_repository_issue(owner: str, repo: str, issue_number: int):
             comments_count=item.get("comments", 0),
             is_good_first_issue=is_gfi,
             is_help_wanted=is_hw,
-            difficulty=difficulty
+            difficulty=difficulty,
+            assignees=assignees
         )
+    except GitHubClientError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+
+@router.get("/{owner}/{repo}/issues/{issue_number}/activity", response_model=IssueActivityDetails)
+async def get_repository_issue_activity(owner: str, repo: str, issue_number: int):
+    cache_key = f"issue_activity:{owner}:{repo}:{issue_number}"
+    cached = await cache_service.get_json(cache_key)
+    if cached:
+        return IssueActivityDetails(**cached)
+    try:
+        activity_data = await github_client.get_issue_activity(owner, repo, issue_number)
+        resp = IssueActivityDetails(**activity_data)
+        await cache_service.set_json(cache_key, resp.model_dump(), ttl=300)
+        return resp
     except GitHubClientError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e))
 

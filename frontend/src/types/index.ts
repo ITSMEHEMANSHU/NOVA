@@ -161,6 +161,42 @@ export interface IssueDifficultyAssessment {
   evidence_source: string;
 }
 
+export interface IssueAssignee {
+  login: string;
+  avatar_url: string;
+  html_url: string;
+}
+
+export interface LinkedPullRequest {
+  number: number;
+  title: string;
+  html_url: string;
+  state: 'open' | 'closed' | 'merged';
+  author_login: string;
+  author_avatar: string;
+  created_at: string;
+  updated_at: string;
+  is_draft: boolean;
+}
+
+export interface ContributorClaim {
+  author_login: string;
+  author_avatar: string;
+  comment_body: string;
+  created_at: string;
+  html_url: string;
+}
+
+export interface IssueActivityDetails {
+  issue_number: number;
+  has_active_workers: boolean;
+  status_badge: 'AVAILABLE' | 'ASSIGNED' | 'PR_IN_PROGRESS' | 'CLAIMED';
+  status_summary: string;
+  assignees: IssueAssignee[];
+  linked_prs: LinkedPullRequest[];
+  recent_claims: ContributorClaim[];
+}
+
 export interface IssueItem {
   id: number;
   number: number;
@@ -178,6 +214,8 @@ export interface IssueItem {
   is_help_wanted: boolean;
   difficulty?: IssueDifficultyAssessment;
   linked_module?: string;
+  assignees?: IssueAssignee[];
+  activity?: IssueActivityDetails;
 }
 
 export interface PaginatedIssuesResponse {

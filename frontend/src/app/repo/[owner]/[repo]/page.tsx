@@ -669,6 +669,17 @@ export default function RepoWorkspacePage({ params }: PageProps) {
                           </span>
                         )}
 
+                        {issue.assignees && issue.assignees.length > 0 ? (
+                          <span className="text-[10px] font-black px-2 py-0.5 bg-[#FEF3C7] text-amber-950 border border-black flex items-center gap-1 uppercase">
+                            <Users className="w-2.5 h-2.5" />
+                            <span>Assigned: @{issue.assignees[0].login}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-black px-2 py-0.5 bg-[#D5F5EF] text-emerald-950 border border-black uppercase">
+                            Unassigned
+                          </span>
+                        )}
+
                         {issue.difficulty && (
                           <span className="text-[10px] font-black px-2 py-0.5 capitalize bg-[#DCEFFD] text-black border border-black">
                             AI: {issue.difficulty.level}

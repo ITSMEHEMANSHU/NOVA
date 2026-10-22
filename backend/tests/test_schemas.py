@@ -76,3 +76,35 @@ def test_paginated_pulls_schema():
     assert response.items[0].is_merged is True
     assert response.total_pages == 1
 
+def test_issue_activity_schema():
+    from app.schemas.issues import IssueItem, IssueAssignee, IssueActivityDetails, LinkedPullRequest, ContributorClaim
+    assignee = IssueAssignee(login="contributor1", avatar_url="https://avatar.url", html_url="https://github.com/contributor1")
+    pr = LinkedPullRequest(number=42, title="Fix bug", html_url="https://github.com/pr/42", state="open", author_login="contributor1")
+    claim = ContributorClaim(author_login="contributor2", comment_body="I can take this up", created_at="2026-10-22T00:00:00Z", html_url="https://github.com/issue/1#c1")
+    activity = IssueActivityDetails(
+        issue_number=1,
+        has_active_workers=True,
+        status_badge="ASSIGNED",
+        status_summary="Assigned to @contributor1",
+        assignees=[assignee],
+        linked_prs=[pr],
+        recent_claims=[claim]
+    )
+    issue = IssueItem(
+        id=1,
+        number=1,
+        title="Sample issue",
+        html_url="https://github.com/foo/bar/issues/1",
+        created_at="2026-10-22T00:00:00Z",
+        updated_at="2026-10-22T00:00:00Z",
+        author_login="alice",
+        author_avatar="",
+        assignees=[assignee],
+        activity=activity
+    )
+    assert issue.assignees[0].login == "contributor1"
+    assert issue.activity.has_active_workers is True
+    assert issue.activity.status_badge == "ASSIGNED"
+    assert len(issue.activity.linked_prs) == 1
+
+

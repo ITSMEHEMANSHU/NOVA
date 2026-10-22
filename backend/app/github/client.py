@@ -239,5 +239,135 @@ class GitHubClient:
             "total_count": len(items)
         }
 
+    async def get_issue_activity(self, owner: str, repo: str, issue_number: int) -> Dict[str, Any]:
+        self._validate_repo_params(owner, repo)
+        
+        # 1. Fetch raw issue to get assignees and metadata
+        issue = await self.get_issue(owner, repo, issue_number)
+        
+        raw_assignees = issue.get("assignees") or []
+        if not raw_assignees and issue.get("assignee"):
+            raw_assignees = [issue["assignee"]]
+        
+        assignees = [
+            {
+                "login": a.get("login", ""),
+                "avatar_url": a.get("avatar_url", ""),
+                "html_url": a.get("html_url", f"https://github.com/{a.get('login', '')}")
+            }
+            for a in raw_assignees if isinstance(a, dict) and a.get("login")
+        ]
+        
+        # 2. Query open pull requests mentioning this issue
+        linked_prs = []
+        try:
+            pr_search = await self._request("GET", "/search/issues", params={
+                "q": f"repo:{owner}/{repo} is:pr {issue_number}",
+                "sort": "updated",
+                "order": "desc",
+                "per_page": 5
+            })
+            for pr in (pr_search.get("items") or []):
+                pr_title = pr.get("title", "")
+                pr_body = pr.get("body") or ""
+                ref_patterns = [
+                    f"#{issue_number}",
+                    f"fixes #{issue_number}",
+                    f"closes #{issue_number}",
+                    f"resolves #{issue_number}",
+                    f"issues/{issue_number}"
+                ]
+                has_ref = any(p in pr_title.lower() or p in pr_body.lower() for p in ref_patterns) or str(issue_number) in pr_title
+                
+                if has_ref or len(pr_search.get("items", [])) <= 2:
+                    pr_state = "open"
+                    if pr.get("pull_request", {}).get("merged_at"):
+                        pr_state = "merged"
+                    elif pr.get("state") == "closed":
+                        pr_state = "closed"
+                    else:
+                        pr_state = "open"
+                        
+                    linked_prs.append({
+                        "number": pr.get("number"),
+                        "title": pr.get("title", ""),
+                        "html_url": pr.get("html_url", ""),
+                        "state": pr_state,
+                        "author_login": pr.get("user", {}).get("login", "unknown"),
+                        "author_avatar": pr.get("user", {}).get("avatar_url", ""),
+                        "created_at": pr.get("created_at", ""),
+                        "updated_at": pr.get("updated_at", ""),
+                        "is_draft": bool(pr.get("draft", False))
+                    })
+        except Exception as e:
+            logger.warning(f"Error querying linked PRs for issue {issue_number}: {e}")
+
+        # 3. Check recent comments for intent to work
+        recent_claims = []
+        try:
+            comments = await self._request("GET", f"/repos/{owner}/{repo}/issues/{issue_number}/comments", params={
+                "per_page": 10,
+                "sort": "created",
+                "direction": "desc"
+            })
+            claim_keywords = [
+                "work on this",
+                "working on this",
+                "take this",
+                "pick this up",
+                "assign me",
+                "assigned to",
+                "can i do this",
+                "pr incoming",
+                "solving this",
+                "fixing this",
+                "i am working on"
+            ]
+            if isinstance(comments, list):
+                for c in comments:
+                    body = (c.get("body") or "").lower()
+                    if any(kw in body for kw in claim_keywords):
+                        recent_claims.append({
+                            "author_login": c.get("user", {}).get("login", "unknown"),
+                            "author_avatar": c.get("user", {}).get("avatar_url", ""),
+                            "comment_body": (c.get("body") or "")[:250],
+                            "created_at": c.get("created_at", ""),
+                            "html_url": c.get("html_url", "")
+                        })
+        except Exception as e:
+            logger.warning(f"Error querying comments for issue {issue_number}: {e}")
+
+        # Determine status
+        open_prs = [pr for pr in linked_prs if pr["state"] == "open"]
+        if assignees:
+            has_active_workers = True
+            status_badge = "ASSIGNED"
+            names = ", ".join([f"@{a['login']}" for a in assignees])
+            status_summary = f"Currently assigned to {names}. A contributor is officially designated to work on this issue."
+        elif open_prs:
+            has_active_workers = True
+            status_badge = "PR_IN_PROGRESS"
+            first_pr = open_prs[0]
+            status_summary = f"Active Pull Request #{first_pr['number']} is open by @{first_pr['author_login']}. Work is actively being submitted for this issue."
+        elif recent_claims:
+            has_active_workers = True
+            status_badge = "CLAIMED"
+            first_claim = recent_claims[0]
+            status_summary = f"@{first_claim['author_login']} commented expressing intent to work on this issue recently."
+        else:
+            has_active_workers = False
+            status_badge = "AVAILABLE"
+            status_summary = "No existing contributors or active pull requests detected. This issue appears open and available for you to work on!"
+
+        return {
+            "issue_number": issue_number,
+            "has_active_workers": has_active_workers,
+            "status_badge": status_badge,
+            "status_summary": status_summary,
+            "assignees": assignees,
+            "linked_prs": linked_prs,
+            "recent_claims": recent_claims
+        }
+
 
 github_client = GitHubClient()

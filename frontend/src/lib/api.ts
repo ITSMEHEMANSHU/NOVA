@@ -14,6 +14,7 @@ import {
   IssueProofAuditResult,
   GeneratedReport,
   BugAutofillResponse,
+  IssueActivityDetails,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
@@ -110,6 +111,15 @@ export async function getRepositoryIssues(
     };
   }
   return data;
+}
+
+export async function getIssueActivity(
+  owner: string,
+  repo: string,
+  issueNumber: number
+): Promise<IssueActivityDetails> {
+  const res = await fetch(`${API_BASE_URL}/repositories/${owner}/${repo}/issues/${issueNumber}/activity`);
+  return handleResponse<IssueActivityDetails>(res);
 }
 
 export async function getRepositoryPulls(
