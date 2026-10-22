@@ -46,3 +46,20 @@ class GeneratedReport(BaseModel):
     markdown_content: str
     quality_score: int
     unverified_elements_flagged: List[str] = Field(default_factory=list)
+
+class BugAutofillRequest(BaseModel):
+    owner: str
+    repo: str
+    title: str
+    body: Optional[str] = ""
+
+class BugAutofillResponse(BaseModel):
+    title: str
+    description: str
+    steps_to_reproduce: str
+    expected_behavior: str
+    actual_behavior: str
+    environment: str
+    error_logs: str
+    reproducibility: str
+

@@ -84,6 +84,7 @@ export default function RepoWorkspacePage({ params }: PageProps) {
 
   // Selected issue for Gemma 4 analysis
   const [selectedIssue, setSelectedIssue] = useState<IssueItem | null>(null);
+  const [issueForProof, setIssueForProof] = useState<IssueItem | null>(null);
 
   // Filter state for issues
   const [issueFilter, setIssueFilter] = useState<'all' | 'gfi' | 'beginner' | 'intermediate'>('all');
@@ -1177,7 +1178,7 @@ export default function RepoWorkspacePage({ params }: PageProps) {
             ======================================================== */}
         {activeTab === 'issue_proof' && (
           <div className="space-y-4">
-            <IssueProofWorkflow owner={owner} repo={repo} />
+            <IssueProofWorkflow owner={owner} repo={repo} seedIssue={issueForProof} />
           </div>
         )}
       </div>
@@ -1189,7 +1190,8 @@ export default function RepoWorkspacePage({ params }: PageProps) {
           owner={owner}
           repo={repo}
           onClose={() => setSelectedIssue(null)}
-          onOpenIssueProof={() => {
+          onOpenIssueProof={(iss) => {
+            setIssueForProof(iss);
             setActiveTab('issue_proof');
           }}
         />

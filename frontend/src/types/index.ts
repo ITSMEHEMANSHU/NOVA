@@ -248,3 +248,15 @@ export interface GeneratedReport {
   quality_score: number;
   unverified_elements_flagged: string[];
 }
+
+export interface BugAutofillResponse {
+  title: string;
+  description: string;
+  steps_to_reproduce: string;
+  expected_behavior: string;
+  actual_behavior: string;
+  environment: string;
+  error_logs: string;
+  reproducibility: string;
+}
+

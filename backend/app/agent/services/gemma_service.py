@@ -1,10 +1,18 @@
 import json
 import logging
+import re
 from typing import Optional, List, Dict, Any
 from app.core.config import settings
 from app.schemas.ai import IssueAnalysisResponse, PrerequisiteItem, InvestigationStep, Hypothesis, RepoSummaryResponse
 from app.schemas.issues import IssueDifficultyAssessment
-from app.schemas.issue_proof import BugAuditInput, IssueProofAuditResult, ClarificationQuestion, BugReportGenerateRequest, GeneratedReport
+from app.schemas.issue_proof import (
+    BugAuditInput,
+    IssueProofAuditResult,
+    ClarificationQuestion,
+    BugReportGenerateRequest,
+    GeneratedReport,
+    BugAutofillResponse,
+)
 
 logger = logging.getLogger("oss_compass.gemma")
 
@@ -309,4 +317,83 @@ Return a valid JSON object matching this exact schema:
             unverified_elements_flagged=unverified
         )
 
+    async def autofill_bug_report(
+        self,
+        owner: str,
+        repo: str,
+        title: str,
+        body: str = ""
+    ) -> BugAutofillResponse:
+        client = self._get_client()
+        raw_body = (body or "").strip()
+        
+        # 1. Extract any code blocks as logs
+        code_blocks = re.findall(r'```(?:[a-zA-Z0-9_-]+)?\s*([\s\S]*?)```', raw_body)
+        extracted_logs = "\n---\n".join(b.strip() for b in code_blocks if len(b.strip()) > 10)
+        
+        # Cleaned body without excessive code dumps for prompt
+        clean_body = re.sub(r'```[\s\S]*?```', '[Code / Traceback attached]', raw_body)[:2000]
+
+        prompt = f"""
+You are an expert open-source triage assistant.
+Extract or synthesize a complete, evidence-grounded bug report for the repository '{owner}/{repo}'.
+
+ISSUE TITLE: {title}
+RAW BODY / NOTES:
+{clean_body}
+
+LOGS DETECTED:
+{extracted_logs[:1000] or "None provided"}
+
+Format into a structured JSON with these exact fields:
+{{
+  "title": "{title}",
+  "description": "Clear explanation of the problem, context, and why it is a defect",
+  "steps_to_reproduce": "1. Step 1\\n2. Step 2\\n3. Step 3",
+  "expected_behavior": "What the user or system should have done",
+  "actual_behavior": "What actually occurred (error, wrong output, silent failure)",
+  "environment": "OS, language runtime, package version or browser",
+  "error_logs": "Relevant stack trace, console logs, or curl/terminal command output (or 'No crash log noted')",
+  "reproducibility": "Always (100%)"
+}}
+"""
+        if client:
+            candidate_models = [settings.GEMINI_MODEL]
+            if settings.GEMINI_MODEL != "gemini-2.5-flash":
+                candidate_models.append("gemini-2.5-flash")
+
+            for m in candidate_models:
+                try:
+                    response = client.models.generate_content(
+                        model=m,
+                        contents=[SYSTEM_INSTRUCTION_GUARDRAIL, prompt],
+                        config={"response_mime_type": "application/json"}
+                    )
+                    parsed = json.loads(response.text)
+                    return BugAutofillResponse(
+                        title=parsed.get("title") or title,
+                        description=parsed.get("description") or clean_body or title,
+                        steps_to_reproduce=parsed.get("steps_to_reproduce") or "1. Checkout repository\n2. Run reproduction command\n3. Observe deviation",
+                        expected_behavior=parsed.get("expected_behavior") or "System executes successfully without errors",
+                        actual_behavior=parsed.get("actual_behavior") or "Execution fails or throws an exception",
+                        environment=parsed.get("environment") or "Linux / macOS / Windows",
+                        error_logs=extracted_logs or parsed.get("error_logs") or "No traceback provided",
+                        reproducibility=parsed.get("reproducibility") or "Always (100%)"
+                    )
+                except Exception as e:
+                    logger.warning(f"Gemma autofill failed with {m}: {e}")
+
+        # Grounded heuristic fallback
+        return BugAutofillResponse(
+            title=title,
+            description=clean_body if len(clean_body) > 20 else f"Issue observed in {owner}/{repo}: {title}",
+            steps_to_reproduce="1. Clone repository\n2. Run reproduction test case\n3. Observe behavior",
+            expected_behavior="Expected clean execution without errors or unexpected behavior",
+            actual_behavior=title,
+            environment="Latest stable release / Default runtime",
+            error_logs=extracted_logs if extracted_logs else "No crash traceback detected in raw text",
+            reproducibility="Always (100%)"
+        )
+
 gemma_service = GemmaService()
+

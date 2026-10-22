@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { auditBugReport, generateBugReport } from '@/lib/api';
-import { IssueProofAuditResult, GeneratedReport } from '@/types';
+import React, { useState, useEffect } from 'react';
+import { auditBugReport, generateBugReport, autofillBugReport } from '@/lib/api';
+import { IssueProofAuditResult, GeneratedReport, IssueItem } from '@/types';
 import {
   ShieldAlert,
   CheckCircle2,
@@ -19,6 +19,7 @@ interface IssueProofWorkflowProps {
   repo: string;
   initialTitle?: string;
   initialDescription?: string;
+  seedIssue?: IssueItem | null;
 }
 
 export default function IssueProofWorkflow({
@@ -26,10 +27,11 @@ export default function IssueProofWorkflow({
   repo,
   initialTitle = '',
   initialDescription = '',
+  seedIssue = null,
 }: IssueProofWorkflowProps) {
-  // Form fields (initialized empty with placeholders instead of mock data)
-  const [title, setTitle] = useState(initialTitle || '');
-  const [description, setDescription] = useState(initialDescription || '');
+  // Form fields
+  const [title, setTitle] = useState(seedIssue?.title || initialTitle || '');
+  const [description, setDescription] = useState(seedIssue?.body || initialDescription || '');
   const [steps, setSteps] = useState('');
   const [expected, setExpected] = useState('');
   const [actual, setActual] = useState('');
@@ -40,11 +42,75 @@ export default function IssueProofWorkflow({
   // Audit state
   const [auditResult, setAuditResult] = useState<IssueProofAuditResult | null>(null);
   const [isAuditing, setIsAuditing] = useState(false);
+  const [isAutofilling, setIsAutofilling] = useState(false);
 
   // Generated report state
   const [report, setReport] = useState<GeneratedReport | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // AI Autofill / Auto-extract with Gemma 4
+  const triggerAutofill = async (t?: string, b?: string) => {
+    const targetTitle = t !== undefined ? t : title;
+    const targetBody = b !== undefined ? b : description;
+    if (!targetTitle && !targetBody) return;
+
+    setIsAutofilling(true);
+    try {
+      const data = await autofillBugReport({
+        owner,
+        repo,
+        title: targetTitle || 'Bug observation',
+        body: targetBody || '',
+      });
+
+      if (data.title) setTitle(data.title);
+      if (data.description) setDescription(data.description);
+      if (data.steps_to_reproduce) setSteps(data.steps_to_reproduce);
+      if (data.expected_behavior) setExpected(data.expected_behavior);
+      if (data.actual_behavior) setActual(data.actual_behavior);
+      if (data.environment) setEnvironment(data.environment);
+      if (data.error_logs && data.error_logs !== 'No traceback provided') {
+        setLogs(data.error_logs);
+      }
+      if (data.reproducibility) setReproducibility(data.reproducibility);
+
+      // Immediately run audit so completeness score is calculated right away
+      const auditRes = await auditBugReport({
+        owner,
+        repo,
+        title: data.title || targetTitle,
+        description: data.description || targetBody,
+        steps_to_reproduce: data.steps_to_reproduce,
+        expected_behavior: data.expected_behavior,
+        actual_behavior: data.actual_behavior,
+        environment: data.environment,
+        error_logs: data.error_logs,
+      });
+      setAuditResult(auditRes);
+    } catch (err: any) {
+      console.warn('AI Autofill error:', err);
+    } finally {
+      setIsAutofilling(false);
+    }
+  };
+
+  // Populate when seedIssue changes
+  useEffect(() => {
+    if (seedIssue) {
+      setTitle(seedIssue.title);
+      setDescription(seedIssue.body || '');
+
+      // Check if raw body contains code fences for stack trace
+      const codeMatch = (seedIssue.body || '').match(/```(?:[a-zA-Z0-9_-]+)?\s*([\s\S]*?)```/);
+      if (codeMatch && codeMatch[1]) {
+        setLogs(codeMatch[1].trim());
+      }
+
+      // Automatically trigger Gemma 4 synthesis
+      triggerAutofill(seedIssue.title, seedIssue.body || '');
+    }
+  }, [seedIssue]);
 
   const handleAudit = async () => {
     setIsAuditing(true);
@@ -124,6 +190,29 @@ export default function IssueProofWorkflow({
           </div>
         )}
       </div>
+
+      {/* Seed Issue Banner */}
+      {seedIssue && (
+        <div className="bg-[#D5F5EF] border-2 border-black p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[3px_3px_0px_#000000]">
+          <div className="flex items-center space-x-2">
+            <span className="px-2 py-0.5 bg-black text-[#72C7E8] text-[10px] font-black uppercase">
+              Imported from Issue #{seedIssue.number}
+            </span>
+            <span className="text-xs font-black text-black truncate max-w-md">
+              {seedIssue.title}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => triggerAutofill(seedIssue.title, seedIssue.body || '')}
+            disabled={isAutofilling}
+            className="brutal-btn px-3 py-1.5 bg-white hover:bg-black hover:text-[#72C7E8] border-2 border-black text-xs font-black uppercase flex items-center space-x-1.5 shrink-0"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{isAutofilling ? 'Gemma Auto-Extracting...' : '✨ Re-Extract with Gemma'}</span>
+          </button>
+        </div>
+      )}
 
       {/* Input Form (2 Columns) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -242,6 +331,20 @@ export default function IssueProofWorkflow({
 
       {/* Action Buttons */}
       <div className="flex flex-wrap items-center gap-3 pt-2">
+        <button
+          type="button"
+          onClick={() => triggerAutofill(title, description)}
+          disabled={isAutofilling || (!title && !description)}
+          className="spark-btn flex items-center space-x-2 px-5 py-2.5 bg-[#FEF3C7] hover:bg-[#fde68a] text-black text-xs font-black uppercase tracking-wider"
+        >
+          {isAutofilling ? (
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="w-3.5 h-3.5 text-black" />
+          )}
+          <span>{isAutofilling ? 'Gemma Synthesizing...' : '✨ AI Auto-Draft with Gemma 4'}</span>
+        </button>
+
         <button
           onClick={handleAudit}
           disabled={isAuditing}

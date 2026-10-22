@@ -13,6 +13,7 @@ import {
   IssueAnalysisResponse,
   IssueProofAuditResult,
   GeneratedReport,
+  BugAutofillResponse,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
@@ -197,3 +198,18 @@ export async function generateBugReport(payload: {
   });
   return handleResponse<GeneratedReport>(res);
 }
+
+export async function autofillBugReport(payload: {
+  owner: string;
+  repo: string;
+  title: string;
+  body?: string;
+}): Promise<BugAutofillResponse> {
+  const res = await fetch(`${API_BASE_URL}/issue-proof/autofill`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<BugAutofillResponse>(res);
+}
+
