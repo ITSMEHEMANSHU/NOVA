@@ -66,6 +66,14 @@ class GraphBuilder:
             found.extend(re.findall(pattern, code_str))
         return found
 
+    def _extract_cpp_imports(self, code_str: str) -> List[str]:
+        # Matches: #include "foo.h" or #include <foo.h>
+        return re.findall(r'#include\s+["<]([^">]+)[">]', code_str)
+
+    def _extract_dart_imports(self, code_str: str) -> List[str]:
+        # Matches: import '...'; or export '...'; or part '...';
+        return re.findall(r"(?:import|export|part)\s+['\"]([^'\"]+)['\"]", code_str)
+
     async def build_graph(self, owner: str, repo: str, branch: str = "main", max_nodes: int = 40) -> ArchitectureGraph:
         cache_key = f"graph:{owner}:{repo}:{branch}"
         cached = await cache_service.get_json(cache_key)
@@ -149,6 +157,10 @@ class GraphBuilder:
                     imported_modules = self._extract_python_imports(content)
                 elif src_path.endswith((".ts", ".tsx", ".js", ".jsx")):
                     imported_modules = self._extract_js_ts_imports(content)
+                elif src_path.endswith((".h", ".hpp", ".cpp", ".cc", ".cxx", ".c")):
+                    imported_modules = self._extract_cpp_imports(content)
+                elif src_path.endswith(".dart"):
+                    imported_modules = self._extract_dart_imports(content)
 
                 # Match imported module against our graph nodes
                 for imp in imported_modules:
