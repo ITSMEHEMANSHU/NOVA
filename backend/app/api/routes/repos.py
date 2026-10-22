@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Query
 from app.github.client import github_client, GitHubClientError
 from app.cache.redis_client import cache_service
+from app.graph.builder import graph_builder
 from app.background.orchestrator import trigger_repo_preparation
 from app.schemas.repository import RepositoryOverview, RepoSectionStatus, Contributor, PullRequest, PaginatedPullsResponse
 from app.schemas.graph import ArchitectureGraph
