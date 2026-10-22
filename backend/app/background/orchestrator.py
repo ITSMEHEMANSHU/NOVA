@@ -31,6 +31,9 @@ async def execute_repo_preparation(owner: str, repo: str) -> Dict[str, Any]:
         contributing = await github_client.get_contributing_guide(owner, repo)
         languages = await github_client.get_languages(owner, repo)
 
+        pure_issues_count = await github_client.get_pure_issues_count(owner, repo)
+        actual_issues_count = pure_issues_count if pure_issues_count is not None else meta.get("open_issues_count", 0)
+
         overview_data = {
             "name": meta.get("name", repo),
             "owner": owner,
@@ -39,7 +42,7 @@ async def execute_repo_preparation(owner: str, repo: str) -> Dict[str, Any]:
             "html_url": meta.get("html_url", f"https://github.com/{owner}/{repo}"),
             "stars_count": meta.get("stargazers_count", 0),
             "forks_count": meta.get("forks_count", 0),
-            "open_issues_count": meta.get("open_issues_count", 0),
+            "open_issues_count": actual_issues_count,
             "license": meta.get("license", {}).get("spdx_id") if meta.get("license") else None,
             "default_branch": meta.get("default_branch", "main"),
             "readme_markdown": readme,

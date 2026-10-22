@@ -87,6 +87,8 @@ class CacheService:
         return True
 
     async def delete(self, key: str):
+        if not self._initialized:
+            await self.initialize()
         if self._connected and self._redis:
             try:
                 await self._redis.delete(key)

@@ -320,7 +320,7 @@ export default function RepoWorkspacePage({ params }: PageProps) {
                   </div>
                   <div className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#D5F5EF] border-2 border-black brutal-shadow-sm">
                     <AlertCircle className="w-3.5 h-3.5" />
-                    <span>{overview.open_issues_count} issues</span>
+                    <span>{totalIssuesCount} issues</span>
                   </div>
                   {overview.license && (
                     <div className="hidden sm:block px-3 py-1.5 bg-white border-2 border-black brutal-shadow-sm">
