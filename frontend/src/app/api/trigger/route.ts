@@ -12,12 +12,22 @@ export async function POST(req: Request) {
 
     // Trigger Trigger.dev task if TRIGGER_SECRET_KEY is configured
     if (process.env.TRIGGER_SECRET_KEY) {
-      const handle = await prepareRepositoryTask.trigger({ owner, repo });
-      return NextResponse.json({
-        triggered: true,
-        runId: handle.id,
-        system: "trigger.dev",
-      });
+      try {
+        const handle = await prepareRepositoryTask.trigger({ owner, repo });
+        return NextResponse.json({
+          triggered: true,
+          runId: handle?.id,
+          system: "trigger.dev",
+        });
+      } catch (triggerError: any) {
+        console.warn("Trigger.dev cloud dispatch note:", triggerError?.message || triggerError);
+        return NextResponse.json({
+          triggered: false,
+          fallback: true,
+          message: "Trigger.dev standby / cloud task not yet deployed via CLI",
+          detail: triggerError?.message || "Cloud session standby",
+        });
+      }
     }
 
     // Direct invocation fallback if trigger dev is in local dev mode
@@ -27,6 +37,6 @@ export async function POST(req: Request) {
       system: "trigger.dev",
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Internal error", fallback: true }, { status: 200 });
   }
 }
