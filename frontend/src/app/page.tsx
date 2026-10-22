@@ -471,7 +471,7 @@ export default function HomePage() {
               <div className="w-8 h-8 bg-black border-2 border-black flex items-center justify-center brutal-shadow-sm">
                 <Compass className="w-4 h-4 text-[#72C7E8]" />
               </div>
-              <span className="font-black text-base tracking-tight uppercase">OSS Compass</span>
+              <span className="font-black text-base tracking-tight uppercase">NOVA</span>
             </div>
             <p className="text-xs font-sans text-slate-700 leading-relaxed font-medium">
               Grounded, evidence-based AI assistant for developer onboarding and meaningful open-source contributions.
@@ -534,7 +534,7 @@ export default function HomePage() {
         </div>
 
         <div className="max-w-[1440px] mx-auto px-6 sm:px-8 mt-12 pt-6 border-t-2 border-black/20 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-600 gap-2">
-          <p>© 2026 OSS COMPASS • LIGHT NEO-BRUTALIST ARCHITECTURE</p>
+          <p>© 2026 NOVA • LIGHT NEO-BRUTALIST ARCHITECTURE</p>
           <p className="font-bold text-black">DESIGN SYSTEM: SPARK GEOMETRY • PALETTE: AQUA / SKY BLUE</p>
         </div>
       </footer>

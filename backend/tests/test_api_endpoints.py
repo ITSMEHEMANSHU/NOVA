@@ -15,7 +15,7 @@ def test_health_endpoint():
 def test_root_endpoint():
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json()["service"] == "OSS Compass Backend API"
+    assert response.json()["service"] == "NOVA Backend API"
 
 def test_issue_proof_validate_endpoint():
     payload = {

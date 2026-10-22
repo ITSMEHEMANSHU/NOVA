@@ -39,10 +39,7 @@ export default function Navbar() {
             </div>
             <div className="flex items-center gap-2">
               <span className="font-black text-xl tracking-tight text-black uppercase">
-                OSS Compass
-              </span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 bg-[#D5F5EF] text-black border border-black brutal-shadow-sm">
-                V0.1.0
+                NOVA
               </span>
             </div>
           </Link>

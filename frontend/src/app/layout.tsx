@@ -3,7 +3,7 @@ import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
 
 export const metadata: Metadata = {
-  title: "OSS Compass — AI-Guided Open-Source Contribution Workspace",
+  title: "NOVA — AI-Guided Open-Source Contribution Workspace",
   description: "Discover suitable repositories, visualize architecture, explore issues, and prepare evidence-based contributions powered by Gemma 4.",
 };
 

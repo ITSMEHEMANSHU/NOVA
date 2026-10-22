@@ -8,14 +8,14 @@ from app.cache.redis_client import cache_service
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger("oss_compass")
+logger = logging.getLogger("nova")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Initializing OSS Compass backend services...")
+    logger.info("Initializing NOVA backend services...")
     await cache_service.initialize()
     yield
-    logger.info("Shutting down OSS Compass backend services...")
+    logger.info("Shutting down NOVA backend services...")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -51,7 +51,7 @@ app.include_router(issue_proof_router, prefix=settings.API_V1_PREFIX)
 @app.get("/")
 def root():
     return {
-        "service": "OSS Compass Backend API",
+        "service": "NOVA Backend API",
         "docs": "/docs",
         "health": "/api/health"
     }
