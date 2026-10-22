@@ -13,10 +13,10 @@ const COMMON_LANGUAGES = ['Python', 'TypeScript', 'JavaScript', 'Go', 'Rust', 'J
 const COMMON_FRAMEWORKS = ['React', 'FastAPI', 'Next.js', 'Node.js', 'Django', 'Tailwind', 'Docker'];
 
 export default function DiscoveryFilters({ onSearch, isLoading }: DiscoveryFiltersProps) {
-  const [languages, setLanguages] = useState<string[]>(['Python']);
-  const [frameworks, setFrameworks] = useState<string[]>(['FastAPI']);
-  const [experience, setExperience] = useState<ExperienceLevel>('beginner');
-  const [contributionTypes, setContributionTypes] = useState<string[]>(['bugs', 'documentation']);
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [frameworks, setFrameworks] = useState<string[]>([]);
+  const [experience, setExperience] = useState<ExperienceLevel | null>(null);
+  const [contributionTypes, setContributionTypes] = useState<string[]>([]);
   const [gsocInterest, setGsocInterest] = useState<boolean>(false);
   const [customLanguage, setCustomLanguage] = useState<string>('');
 
@@ -60,7 +60,7 @@ export default function DiscoveryFilters({ onSearch, isLoading }: DiscoveryFilte
     onSearch({
       languages,
       frameworks,
-      experience_level: experience,
+      experience_level: experience || 'beginner',
       interests: ['web', 'devtools'],
       contribution_types: contributionTypes,
       gsoc_interest: gsocInterest,
@@ -232,7 +232,7 @@ export default function DiscoveryFilters({ onSearch, isLoading }: DiscoveryFilte
                 <button
                   key={lvl}
                   type="button"
-                  onClick={() => setExperience(lvl)}
+                  onClick={() => setExperience(experience === lvl ? null : lvl)}
                   className={`brutal-btn py-3 text-xs sm:text-sm font-black uppercase border-2 border-black transition-all cursor-pointer ${
                     experience === lvl
                       ? 'bg-[#72C7E8] text-black brutal-shadow-sm'

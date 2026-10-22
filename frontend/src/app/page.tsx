@@ -30,33 +30,19 @@ const PRELOADED_REPOS = [
 
 export default function HomePage() {
   const router = useRouter();
-  const [repoUrl, setRepoUrl] = useState('https://github.com/fastapi/fastapi');
+  const [repoUrl, setRepoUrl] = useState('');
   const [repositories, setRepositories] = useState<RepoSearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [querySummary, setQuerySummary] = useState<string>(
-    'Fetching live verified open-source repositories from GitHub...'
+    'Configure your target skills above and click "Discover Suitable Repositories" to match projects.'
   );
   const [inputError, setInputError] = useState('');
 
   // Dynamic Live Workbench Hero Preview States (No Mock Data)
   const [heroOverview, setHeroOverview] = useState<RepositoryOverview | null>(null);
   const [heroIssues, setHeroIssues] = useState<IssueItem[]>([]);
-  const [heroLoading, setHeroLoading] = useState(true);
-
-  // Initial mount: load real discovery results and real hero preview
-  useEffect(() => {
-    handleSearch({
-      languages: ['Python'],
-      frameworks: ['FastAPI'],
-      experience_level: 'beginner',
-      interests: ['web', 'devtools'],
-      contribution_types: ['bugs', 'documentation'],
-      gsoc_interest: false,
-      min_stars: 10,
-    });
-
-    loadHeroPreview('fastapi', 'fastapi');
-  }, []);
+  const [heroLoading, setHeroLoading] = useState(false);
 
   const loadHeroPreview = async (owner: string, repo: string) => {
     setHeroLoading(true);
@@ -76,6 +62,7 @@ export default function HomePage() {
 
   const handleSearch = async (preferences: UserPreferences) => {
     setIsSearching(true);
+    setHasSearched(true);
     try {
       const response = await searchRepositories(preferences);
       if (response.repositories) {
@@ -241,8 +228,8 @@ export default function HomePage() {
                   </span>
                 </div>
                 <div className="font-mono text-xs text-[#72C7E8] uppercase font-bold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#10b981] animate-ping" />
-                  <span>{heroLoading ? 'QUERYING API...' : 'LIVE // VERIFIED'}</span>
+                  <span className={`w-2 h-2 rounded-full ${heroLoading ? 'bg-[#e85e5e] animate-ping' : heroOverview ? 'bg-[#10b981]' : 'bg-[#72C7E8]'}`} />
+                  <span>{heroLoading ? 'QUERYING API...' : heroOverview ? 'LIVE // VERIFIED' : 'STANDBY // READY'}</span>
                 </div>
               </div>
 
@@ -255,18 +242,18 @@ export default function HomePage() {
                       <Compass className="w-4 h-4 text-black hover-rotate" />
                     </div>
                     <span className="text-sm font-black text-black truncate">
-                      {heroOverview ? `${heroOverview.owner} / ${heroOverview.name}` : 'fastapi / fastapi'}
+                      {heroOverview ? `${heroOverview.owner} / ${heroOverview.name}` : 'No target selected'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs font-bold shrink-0 ml-2">
                     <span className="bg-[#DCEFFD] px-2.5 py-1 border border-black">
-                      ★ {heroOverview ? heroOverview.stars_count.toLocaleString() : '82,000'}
+                      ★ {heroOverview ? heroOverview.stars_count.toLocaleString() : '---'}
                     </span>
                     <span className="bg-[#D5F5EF] px-2.5 py-1 border border-black uppercase">
                       {heroOverview?.primary_language ||
                         (heroOverview?.languages && Object.keys(heroOverview.languages).length > 0
                           ? Object.keys(heroOverview.languages)[0]
-                          : 'PYTHON')}
+                          : 'STANDBY')}
                     </span>
                   </div>
                 </div>
@@ -279,7 +266,7 @@ export default function HomePage() {
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     {(heroOverview?.topics && heroOverview.topics.length > 0
                       ? heroOverview.topics.slice(0, 4)
-                      : ['applications', 'routing', 'models', 'tests']
+                      : ['architecture', 'entrypoints', 'dependencies', 'issues']
                     ).map((t, idx) => (
                       <div
                         key={t}
@@ -300,38 +287,53 @@ export default function HomePage() {
                 <div className="border-2 border-black p-4 bg-[#DCEFFD] brutal-shadow-sm flex flex-col gap-1.5 font-mono">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black bg-black text-white px-2 py-0.5">
-                      ISSUE #{heroIssues.length > 0 ? heroIssues[0].number : (heroOverview?.open_issues_count || 1)}
+                      {heroOverview ? `ISSUE #${heroIssues.length > 0 ? heroIssues[0].number : (heroOverview.open_issues_count || 1)}` : 'WORKBENCH READY'}
                     </span>
                     <span className="text-xs bg-[#72C7E8] text-black px-2 py-0.5 border border-black font-black uppercase">
                       {heroIssues.length > 0 && heroIssues[0].difficulty?.level
                         ? heroIssues[0].difficulty.level.toUpperCase()
-                        : 'FIRST STEP'}
+                        : 'ENTRYPOINT'}
                     </span>
                   </div>
                   <div className="text-xs sm:text-sm font-black text-black mt-1 truncate">
                     {heroIssues.length > 0
                       ? heroIssues[0].title
-                      : heroOverview?.description || 'Inspect architectural modules and issue roadmaps'}
+                      : heroOverview?.description || 'Select a preloaded target or enter a GitHub repository above'}
                   </div>
                   <div className="text-[11px] text-slate-700 font-sans line-clamp-1">
                     {heroIssues.length > 0 && heroIssues[0].difficulty?.rationale
                       ? heroIssues[0].difficulty.rationale
-                      : 'Live GitHub maintainer repository connected with deterministic AST graph.'}
+                      : 'Analyze any repository to preview its live architectural tree, issues, and contributor graph.'}
                   </div>
                 </div>
 
                 {/* Action Link */}
-                <Link
-                  href={
-                    heroOverview
-                      ? `/repo/${heroOverview.owner}/${heroOverview.name}`
-                      : '/repo/fastapi/fastapi'
-                  }
-                  className="brutal-btn w-full flex items-center justify-center gap-2 py-3 bg-[#72C7E8] hover:bg-black hover:text-[#72C7E8] text-black font-mono font-black text-xs uppercase border-2 border-black brutal-shadow-sm"
-                >
-                  <span>Open Live Workspace</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
+                {heroOverview ? (
+                  <Link
+                    href={`/repo/${heroOverview.owner}/${heroOverview.name}`}
+                    className="brutal-btn w-full flex items-center justify-center gap-2 py-3 bg-[#72C7E8] hover:bg-black hover:text-[#72C7E8] text-black font-mono font-black text-xs uppercase border-2 border-black brutal-shadow-sm"
+                  >
+                    <span>Open Live Workspace</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (repoUrl.trim()) {
+                        handleAnalyze();
+                      } else {
+                        const defaultTarget = PRELOADED_REPOS[0];
+                        setRepoUrl(defaultTarget);
+                        loadHeroPreview('fastapi', 'fastapi');
+                      }
+                    }}
+                    className="brutal-btn w-full flex items-center justify-center gap-2 py-3 bg-white hover:bg-[#D5F5EF] text-black font-mono font-black text-xs uppercase border-2 border-black brutal-shadow-sm"
+                  >
+                    <span>Select Target Above to Open</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -382,7 +384,7 @@ export default function HomePage() {
             </div>
           </div>
           <span className="text-xs font-black px-3.5 py-1.5 bg-white border-2 border-black brutal-shadow-sm text-black self-start sm:self-auto uppercase">
-            {repositories.length} PROJECTS RANKED
+            {hasSearched ? `${repositories.length} PROJECTS RANKED` : 'READY TO SEARCH'}
           </span>
         </div>
 
@@ -403,6 +405,18 @@ export default function HomePage() {
             {repositories.map((repo) => (
               <RepoCard key={repo.id} repo={repo} />
             ))}
+          </div>
+        ) : !hasSearched ? (
+          <div className="brutal-card bg-white p-12 text-center space-y-3">
+            <div className="inline-flex p-3 bg-[#DCEFFD] border-2 border-black brutal-shadow-sm mb-1">
+              <Compass className="w-6 h-6 text-black" />
+            </div>
+            <p className="text-sm font-black uppercase text-black">
+              Ready to Discover Repositories
+            </p>
+            <p className="text-xs font-sans text-slate-600 max-w-md mx-auto">
+              Select your target languages, frameworks, or contribution preferences above and click &quot;Discover Suitable Repositories&quot; to begin.
+            </p>
           </div>
         ) : (
           <div className="brutal-card bg-white p-14 text-center space-y-2">
