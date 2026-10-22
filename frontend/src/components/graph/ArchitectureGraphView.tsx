@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, memo } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -16,18 +16,16 @@ import {
   Handle,
   Position,
 } from '@xyflow/react';
-import { ArchitectureGraph, GraphNode } from '@/types';
+import { ArchitectureGraph, GraphNode, GraphEdge } from '@/types';
 import {
   ExternalLink,
   ShieldCheck,
   Search,
   Network,
-  ArrowRight,
   ArrowDownLeft,
   ArrowUpRight,
   X,
-  Layers,
-  Sparkles,
+  RotateCcw,
 } from 'lucide-react';
 
 interface ArchitectureGraphViewProps {
@@ -85,49 +83,38 @@ const TYPE_CONFIG: Record<
 };
 
 /**
- * Graphify-inspired Circular Orb Node
+ * High-Performance Circular Node
+ * Memoized with NO CSS position transitions to eliminate drag lag completely.
  */
-function CircularNodeComponent({ data }: any) {
+const CircularNodeComponent = memo(function CircularNodeComponent({ data }: any) {
   const { rawNode, conf, isHighlighted, isDimmed, isSelected } = data;
 
   return (
     <div
-      className={`relative flex flex-col items-center transition-all duration-300 ${
-        isDimmed ? 'opacity-20 scale-90' : 'opacity-100 scale-100'
+      className={`relative flex flex-col items-center select-none ${
+        isDimmed ? 'opacity-25' : 'opacity-100'
       }`}
     >
-      {/* React Flow Handles for multi-directional connections */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="!w-1.5 !h-1.5 !bg-black !opacity-0"
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="!w-1.5 !h-1.5 !bg-black !opacity-0"
-      />
+      {/* Horizontal Tree Handles: Left (Target/In), Right (Source/Out) */}
       <Handle
         type="target"
         position={Position.Left}
-        id="left"
-        className="!w-1.5 !h-1.5 !bg-black !opacity-0"
+        className="!w-2 !h-2 !bg-black !border !border-white !opacity-0"
       />
       <Handle
         type="source"
         position={Position.Right}
-        id="right"
-        className="!w-1.5 !h-1.5 !bg-black !opacity-0"
+        className="!w-2 !h-2 !bg-black !border !border-white !opacity-0"
       />
 
       {/* Circular Orb */}
       <div
-        className={`w-14 h-14 rounded-full flex flex-col items-center justify-center border-2 border-black transition-all duration-300 relative cursor-pointer select-none ${
+        className={`w-14 h-14 rounded-full flex flex-col items-center justify-center border-2 border-black cursor-grab active:cursor-grabbing relative ${
           isSelected
-            ? 'ring-4 ring-black shadow-[0px_0px_24px_rgba(2,132,199,0.95)] scale-115 z-30'
+            ? 'ring-4 ring-black shadow-[0px_0px_20px_rgba(2,132,199,0.9)] scale-110 z-30'
             : isHighlighted
-            ? 'ring-3 ring-[#0284c7] shadow-[0px_0px_14px_rgba(2,132,199,0.6)] scale-105 z-20'
-            : 'shadow-[3px_3px_0px_0px_#000000] hover:scale-105 hover:shadow-[4px_4px_0px_0px_#000000]'
+            ? 'ring-3 ring-[#0284c7] shadow-[0px_0px_14px_rgba(2,132,199,0.5)] scale-105 z-20'
+            : 'shadow-[3px_3px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000]'
         }`}
         style={{
           backgroundColor: conf?.bgColor || '#DCEFFD',
@@ -148,9 +135,9 @@ function CircularNodeComponent({ data }: any) {
         )}
       </div>
 
-      {/* Floating Pill Label */}
+      {/* Node Title Label Pill */}
       <div
-        className={`mt-1.5 px-2 py-0.5 border border-black text-[10px] font-mono font-black truncate max-w-[130px] transition-all text-center pointer-events-none ${
+        className={`mt-1.5 px-2 py-0.5 border border-black text-[10px] font-mono font-black truncate max-w-[130px] text-center pointer-events-none ${
           isSelected
             ? 'bg-black text-[#72C7E8] shadow-[2px_2px_0px_#000000]'
             : isHighlighted
@@ -163,11 +150,111 @@ function CircularNodeComponent({ data }: any) {
       </div>
     </div>
   );
-}
+});
 
 const nodeTypes = {
   circular: CircularNodeComponent,
 };
+
+/**
+ * Builds a clean, non-overlapping hierarchical Tree (DAG) layout
+ */
+function computeTreeLayout(nodes: GraphNode[], edges: GraphEdge[]) {
+  const inDegree: Record<string, number> = {};
+  const adjacency: Record<string, string[]> = {};
+
+  nodes.forEach((n) => {
+    inDegree[n.id] = 0;
+    adjacency[n.id] = [];
+  });
+
+  edges.forEach((e) => {
+    if (inDegree[e.target] !== undefined) {
+      inDegree[e.target]++;
+    }
+    if (adjacency[e.source]) {
+      adjacency[e.source].push(e.target);
+    }
+  });
+
+  // Assign levels (BFS)
+  const levels: Record<string, number> = {};
+  const visited = new Set<string>();
+
+  const roots = nodes.filter(
+    (n) =>
+      n.type === 'entry_point' ||
+      n.path.includes('main.') ||
+      n.path.includes('app.') ||
+      inDegree[n.id] === 0
+  );
+
+  const startRoots = roots.length > 0 ? roots : [nodes[0]];
+  const queue: { id: string; level: number }[] = startRoots.map((r) => ({
+    id: r.id,
+    level: 0,
+  }));
+  startRoots.forEach((r) => visited.add(r.id));
+
+  while (queue.length > 0) {
+    const { id, level } = queue.shift()!;
+    levels[id] = Math.min(4, Math.max(levels[id] ?? 0, level));
+
+    for (const targetId of adjacency[id] || []) {
+      if (!visited.has(targetId)) {
+        visited.add(targetId);
+        queue.push({ id: targetId, level: level + 1 });
+      }
+    }
+  }
+
+  // Any remaining nodes grouped by architectural role
+  nodes.forEach((n) => {
+    if (levels[n.id] === undefined) {
+      if (n.type === 'entry_point') levels[n.id] = 0;
+      else if (n.type === 'service') levels[n.id] = 1;
+      else if (n.type === 'module' || n.type === 'component') levels[n.id] = 2;
+      else levels[n.id] = 3;
+    }
+  });
+
+  // Group columns
+  const columns: Record<number, GraphNode[]> = {};
+  nodes.forEach((n) => {
+    const lvl = levels[n.id] ?? 2;
+    if (!columns[lvl]) columns[lvl] = [];
+    columns[lvl].push(n);
+  });
+
+  // Sort within columns by directory so sibling files stay naturally adjacent
+  Object.values(columns).forEach((col) => {
+    col.sort((a, b) => a.path.localeCompare(b.path));
+  });
+
+  const positions: Record<string, { x: number; y: number }> = {};
+  const xSpacing = 340; // Wide horizontal gap between tree layers
+  const ySpacing = 100; // Generous vertical gap so nodes never touch!
+
+  // Find max column height to center shorter columns gracefully
+  const maxNodesInCol = Math.max(...Object.values(columns).map((c) => c.length), 1);
+  const totalTreeHeight = maxNodesInCol * ySpacing;
+
+  Object.entries(columns).forEach(([lvlStr, colNodes]) => {
+    const lvl = parseInt(lvlStr, 10);
+    const colX = 100 + lvl * xSpacing;
+    const colHeight = colNodes.length * ySpacing;
+    const startY = Math.max(60, (totalTreeHeight - colHeight) / 2 + 60);
+
+    colNodes.forEach((node, idx) => {
+      positions[node.id] = {
+        x: colX,
+        y: Math.round(startY + idx * ySpacing),
+      };
+    });
+  });
+
+  return positions;
+}
 
 export default function ArchitectureGraphView({
   graph,
@@ -177,7 +264,19 @@ export default function ArchitectureGraphView({
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 1. Calculate connected edges and neighbor nodes for path highlighting
+  // 1. Compute tree layout coordinates once per graph change
+  const initialPositions = useMemo(() => {
+    return computeTreeLayout(graph.nodes, graph.edges);
+  }, [graph.nodes, graph.edges]);
+
+  // Lookup map for fast node retrieval by id
+  const nodeMap = useMemo(() => {
+    const map = new Map<string, GraphNode>();
+    graph.nodes.forEach((n) => map.set(n.id, n));
+    return map;
+  }, [graph.nodes]);
+
+  // 2. Calculate connected edges and neighbor nodes for path highlighting
   const { incomingEdges, outgoingEdges, connectedNeighbors } = useMemo(() => {
     if (!selectedNode) {
       return {
@@ -201,92 +300,11 @@ export default function ArchitectureGraphView({
     };
   }, [selectedNode, graph.edges]);
 
-  // Lookup map for fast node retrieval by id
-  const nodeMap = useMemo(() => {
-    const map = new Map<string, GraphNode>();
-    graph.nodes.forEach((n) => map.set(n.id, n));
-    return map;
-  }, [graph.nodes]);
-
-  // 2. Cosmic Orbital Layout (Concentric Rings instead of rigid grid)
-  const nodePositions = useMemo(() => {
-    const tier1: GraphNode[] = []; // Entrypoints / hubs
-    const tier2: GraphNode[] = []; // Services / modules
-    const tier3: GraphNode[] = []; // Configs / tests / utils
-
-    graph.nodes.forEach((n) => {
-      const p = n.path.toLowerCase();
-      if (
-        n.type === 'entry_point' ||
-        p.includes('main') ||
-        p.includes('app') ||
-        p.endsWith('index.ts') ||
-        p.endsWith('index.js')
-      ) {
-        tier1.push(n);
-      } else if (n.type === 'service' || n.type === 'module') {
-        tier2.push(n);
-      } else {
-        tier3.push(n);
-      }
-    });
-
-    const centerX = 550;
-    const centerY = 380;
-    const positions: Record<string, { x: number; y: number }> = {};
-
-    // Center Core Tier 1 (Radius 120-160px)
-    const count1 = Math.max(1, tier1.length);
-    const r1 = Math.max(120, count1 * 30);
-    tier1.forEach((n, idx) => {
-      const angle = (idx / count1) * 2 * Math.PI - Math.PI / 2;
-      positions[n.id] = {
-        x: Math.round(centerX + r1 * Math.cos(angle)),
-        y: Math.round(centerY + r1 * Math.sin(angle)),
-      };
-    });
-
-    // Middle Orbit Tier 2 (Radius 270-350px)
-    const count2 = Math.max(1, tier2.length);
-    const r2 = Math.max(270, r1 + 140);
-    tier2.forEach((n, idx) => {
-      const angle = (idx / count2) * 2 * Math.PI;
-      positions[n.id] = {
-        x: Math.round(centerX + r2 * Math.cos(angle)),
-        y: Math.round(centerY + r2 * Math.sin(angle)),
-      };
-    });
-
-    // Outer Orbit Tier 3 (Radius 420-520px)
-    const count3 = Math.max(1, tier3.length);
-    const r3 = Math.max(430, r2 + 150);
-    tier3.forEach((n, idx) => {
-      const angle = (idx / count3) * 2 * Math.PI + Math.PI / 8;
-      positions[n.id] = {
-        x: Math.round(centerX + r3 * Math.cos(angle)),
-        y: Math.round(centerY + r3 * Math.sin(angle)),
-      };
-    });
-
-    return positions;
-  }, [graph.nodes]);
-
-  // 3. Transform nodes with dynamic highlight/dim states
-  const flowNodes: Node[] = useMemo(() => {
+  // 3. Build initial React Flow nodes
+  const initialNodes: Node[] = useMemo(() => {
     return graph.nodes.map((n) => {
       const conf = TYPE_CONFIG[n.type] || TYPE_CONFIG.module;
-      const pos = nodePositions[n.id] || { x: 400, y: 300 };
-
-      const isMatch =
-        !searchQuery ||
-        n.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        n.path.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const isSelected = selectedNode?.id === n.id;
-      const isHighlighted = connectedNeighbors.has(n.id);
-      const isDimmed =
-        !isMatch ||
-        (selectedNode !== null && !isSelected && !isHighlighted);
+      const pos = initialPositions[n.id] || { x: 100, y: 100 };
 
       return {
         id: n.id,
@@ -295,68 +313,130 @@ export default function ArchitectureGraphView({
         data: {
           rawNode: n,
           conf,
-          isSelected,
-          isHighlighted,
-          isDimmed,
+          isSelected: false,
+          isHighlighted: false,
+          isDimmed: false,
         },
       };
     });
-  }, [graph.nodes, nodePositions, searchQuery, selectedNode, connectedNeighbors]);
+  }, [graph.nodes, initialPositions]);
 
-  // 4. Transform edges with active path highlights
-  const flowEdges: Edge[] = useMemo(() => {
-    return graph.edges.map((e) => {
-      const isOutgoing = selectedNode?.id === e.source;
-      const isIncoming = selectedNode?.id === e.target;
-      const isConnected = isOutgoing || isIncoming;
-      const hasSelection = selectedNode !== null;
+  // 4. Build initial React Flow edges (smoothstep tree curves)
+  const initialEdges: Edge[] = useMemo(() => {
+    return graph.edges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      type: 'smoothstep',
+      animated: !e.is_inferred,
+      zIndex: 1,
+      style: {
+        stroke: e.is_inferred ? '#64748b' : '#000000',
+        strokeDasharray: e.is_inferred ? '4 4' : undefined,
+        strokeWidth: 2,
+      },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: e.is_inferred ? '#64748b' : '#000000',
+      },
+    }));
+  }, [graph.edges]);
 
-      let stroke = e.is_inferred ? '#64748b' : '#000000';
-      let strokeWidth = e.is_inferred ? 1.5 : 2;
-      let animated = !e.is_inferred;
-      let zIndex = 1;
+  const [nodes, setNodes] = useState<Node[]>(initialNodes);
+  const [edges, setEdges] = useState<Edge[]>(initialEdges);
 
-      if (hasSelection) {
-        if (isConnected) {
-          stroke = isOutgoing ? '#0284c7' : '#10b981';
-          strokeWidth = 3.5;
-          animated = true;
-          zIndex = 10;
-        } else {
-          stroke = '#e2e8f0';
-          strokeWidth = 1;
-          animated = false;
-          zIndex = 0;
-        }
-      }
-
-      return {
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        animated,
-        zIndex,
-        style: {
-          stroke,
-          strokeDasharray: e.is_inferred && !isConnected ? '4 4' : undefined,
-          strokeWidth,
-          transition: 'all 0.3s ease',
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: stroke,
-        },
-      };
-    });
-  }, [graph.edges, selectedNode]);
-
-  const [nodes, setNodes] = useState<Node[]>(flowNodes);
-  const [edges, setEdges] = useState<Edge[]>(flowEdges);
-
+  // Sync when graph changes or layout resets
   React.useEffect(() => {
-    setNodes(flowNodes);
-    setEdges(flowEdges);
-  }, [flowNodes, flowEdges]);
+    setNodes(initialNodes);
+  }, [initialNodes]);
+
+  // Update node highlight & dim states without moving their dragged positions
+  React.useEffect(() => {
+    setNodes((currentNodes) =>
+      currentNodes.map((node) => {
+        const raw = node.data?.rawNode as GraphNode;
+        if (!raw) return node;
+
+        const isMatch =
+          !searchQuery ||
+          raw.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          raw.path.toLowerCase().includes(searchQuery.toLowerCase());
+
+        const isSelected = selectedNode?.id === raw.id;
+        const isHighlighted = connectedNeighbors.has(raw.id);
+        const isDimmed =
+          !isMatch ||
+          (selectedNode !== null && !isSelected && !isHighlighted);
+
+        if (
+          node.data.isSelected === isSelected &&
+          node.data.isHighlighted === isHighlighted &&
+          node.data.isDimmed === isDimmed
+        ) {
+          return node;
+        }
+
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            isSelected,
+            isHighlighted,
+            isDimmed,
+          },
+        };
+      })
+    );
+  }, [selectedNode, connectedNeighbors, searchQuery]);
+
+  // Update edges with active path highlights
+  React.useEffect(() => {
+    setEdges(
+      graph.edges.map((e) => {
+        const isOutgoing = selectedNode?.id === e.source;
+        const isIncoming = selectedNode?.id === e.target;
+        const isConnected = isOutgoing || isIncoming;
+        const hasSelection = selectedNode !== null;
+
+        let stroke = e.is_inferred ? '#64748b' : '#000000';
+        let strokeWidth = 2;
+        let animated = !e.is_inferred;
+        let zIndex = 1;
+
+        if (hasSelection) {
+          if (isConnected) {
+            stroke = isOutgoing ? '#0284c7' : '#10b981';
+            strokeWidth = 3.5;
+            animated = true;
+            zIndex = 10;
+          } else {
+            stroke = '#e2e8f0';
+            strokeWidth = 1;
+            animated = false;
+            zIndex = 0;
+          }
+        }
+
+        return {
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          type: 'smoothstep',
+          animated,
+          zIndex,
+          style: {
+            stroke,
+            strokeDasharray: e.is_inferred && !isConnected ? '4 4' : undefined,
+            strokeWidth,
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: stroke,
+          },
+        };
+      })
+    );
+  }, [graph.edges, selectedNode]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
@@ -376,6 +456,11 @@ export default function ArchitectureGraphView({
     setSelectedNode(null);
   };
 
+  const handleResetLayout = () => {
+    setNodes(initialNodes);
+    setSelectedNode(null);
+  };
+
   return (
     <div className="relative w-full h-[700px] bg-[#F8FCFE] spark-panel-lg overflow-hidden flex flex-col border-2 border-black brutal-shadow-md">
       {/* Graph Toolbar */}
@@ -385,42 +470,46 @@ export default function ArchitectureGraphView({
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-black" />
             <input
               type="text"
-              placeholder="Search file in graph..."
+              placeholder="Search file in tree..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8 pr-3 py-1.5 text-xs bg-white border-2 border-black rounded-none text-black placeholder-slate-500 font-mono font-bold focus:outline-none focus:bg-[#D5F5EF] w-52 shadow-[2px_2px_0px_#000000]"
             />
           </div>
-          <span className="text-xs font-mono font-black text-black">
-            {graph.total_nodes} CIRCULAR NODES • {graph.total_edges} CONNECTIONS
+          <span className="text-xs font-mono font-black text-black hidden sm:inline">
+            {graph.total_nodes} NODES • {graph.total_edges} CONNECTIONS (TREE LAYOUT)
           </span>
         </div>
 
-        {/* Legend */}
-        <div className="hidden lg:flex items-center space-x-3 text-[11px] font-mono font-black text-black">
-          <div className="flex items-center space-x-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#D5F5EF] border border-black" />
-            <span>Entry</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#DCEFFD] border border-black" />
-            <span>Service</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#E0E7FF] border border-black" />
-            <span>Module</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#FEF3C7] border border-black" />
-            <span>Config</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <div className="w-3 h-0.5 bg-[#0284c7]" />
-            <span>Imports</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <div className="w-3 h-0.5 border-b-2 border-dashed border-slate-500" />
-            <span className="text-slate-600">Sibling</span>
+        <div className="flex items-center space-x-3 text-[11px] font-mono font-black text-black">
+          {/* Reset layout button */}
+          <button
+            onClick={handleResetLayout}
+            className="brutal-btn px-2.5 py-1 bg-white border border-black hover:bg-[#D5F5EF] flex items-center space-x-1"
+            title="Reset to organized tree layout"
+          >
+            <RotateCcw className="w-3 h-3 text-black" />
+            <span>Reset Tree</span>
+          </button>
+
+          {/* Legend */}
+          <div className="hidden lg:flex items-center space-x-3">
+            <div className="flex items-center space-x-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#D5F5EF] border border-black" />
+              <span>Entry</span>
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#DCEFFD] border border-black" />
+              <span>Service</span>
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#E0E7FF] border border-black" />
+              <span>Module</span>
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <div className="w-3 h-0.5 bg-[#0284c7]" />
+              <span>Imports</span>
+            </div>
           </div>
         </div>
       </div>
@@ -436,9 +525,9 @@ export default function ArchitectureGraphView({
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
           fitView
-          fitViewOptions={{ padding: 0.2 }}
+          fitViewOptions={{ padding: 0.15 }}
           colorMode="light"
-          minZoom={0.2}
+          minZoom={0.15}
           maxZoom={2.0}
         >
           <Background color="#cbd5e1" gap={24} size={1.5} />
@@ -453,9 +542,9 @@ export default function ArchitectureGraphView({
           />
         </ReactFlow>
 
-        {/* Selected Node Right-Side Inspector Drawer (Graphify Style) */}
+        {/* Selected Node Right-Side Inspector Drawer */}
         {selectedNode && (
-          <div className="absolute right-4 top-4 bottom-4 w-84 bg-white border-2 border-black brutal-shadow-lg p-5 flex flex-col justify-between z-30 font-mono animate-in slide-in-from-right duration-200">
+          <div className="absolute right-4 top-4 bottom-4 w-84 bg-white border-2 border-black brutal-shadow-lg p-5 flex flex-col justify-between z-30 font-mono animate-in slide-in-from-right duration-150">
             <div className="overflow-y-auto space-y-4 pr-1">
               {/* Header */}
               <div className="flex items-center justify-between pb-2.5 border-b-2 border-black">

@@ -75,7 +75,7 @@ class GraphBuilder:
         return re.findall(r"(?:import|export|part)\s+['\"]([^'\"]+)['\"]", code_str)
 
     async def build_graph(self, owner: str, repo: str, branch: str = "main", max_nodes: int = 40) -> ArchitectureGraph:
-        cache_key = f"graph:{owner}:{repo}:{branch}"
+        cache_key = f"graph_v2:{owner}:{repo}:{branch}"
         cached = await cache_service.get_json(cache_key)
         if cached:
             return ArchitectureGraph(**cached)
@@ -194,24 +194,29 @@ class GraphBuilder:
             if dir_name:
                 dir_groups.setdefault(dir_name, []).append(path)
 
+        # 3. Add clean structural hierarchy relationships (link directory files to parent module / directory entrypoint)
         for dir_name, paths_in_dir in dir_groups.items():
             if len(paths_in_dir) > 1:
-                root_file = paths_in_dir[0]
-                root_id = path_to_node_id[root_file]
-                for other_file in paths_in_dir[1:]:
+                index_candidates = [p for p in paths_in_dir if any(os.path.basename(p).startswith(x) for x in ["index.", "mod.", "__init__.", "main."])]
+                parent_file = index_candidates[0] if index_candidates else paths_in_dir[0]
+                parent_id = path_to_node_id[parent_file]
+
+                for other_file in paths_in_dir[1:5]:
                     other_id = path_to_node_id[other_file]
-                    sig = f"{root_id}->{other_id}"
+                    if other_id == parent_id:
+                        continue
+                    sig = f"{parent_id}->{other_id}"
                     if sig not in edge_signatures:
                         edge_signatures.add(sig)
                         edge_id_counter += 1
                         edges.append(GraphEdge(
                             id=f"e_{edge_id_counter}",
-                            source=root_id,
+                            source=parent_id,
                             target=other_id,
-                            label="sibling",
-                            relationship="sibling_in_module",
+                            label="submodule",
+                            relationship="submodule",
                             is_inferred=True,
-                            evidence=f"Files co-located in directory: '{dir_name}'"
+                            evidence=f"Directory hierarchy in '{dir_name}'"
                         ))
 
         result_graph = ArchitectureGraph(
