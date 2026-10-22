@@ -1,0 +1,103 @@
+{
+  "concurrencyLimits": [
+  ],
+  "configPath": "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\trigger.config.mjs",
+  "customConditions": [
+  ],
+  "prompts": [
+  ],
+  "queues": [
+  ],
+  "runtime": "node-24",
+  "runtimeVersion": "22.22.1",
+  "skills": [
+  ],
+  "tasks": [
+    {
+      "entryPoint": "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\src\\trigger\\repositoryTasks.mjs",
+      "filePath": "src/trigger/repositoryTasks.ts",
+      "id": "prepare-repository",
+      "maxDuration": 300,
+      "retry": {
+        "factor": 2,
+        "maxAttempts": 3,
+        "maxTimeoutInMs": 60000,
+        "minTimeoutInMs": 1000,
+        "randomize": true
+      }
+    },
+    {
+      "entryPoint": "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\src\\trigger\\repositoryTasks.mjs",
+      "filePath": "src/trigger/repositoryTasks.ts",
+      "id": "build-dependency-graph",
+      "maxDuration": 300,
+      "retry": {
+        "factor": 2,
+        "maxAttempts": 3,
+        "maxTimeoutInMs": 60000,
+        "minTimeoutInMs": 1000,
+        "randomize": true
+      }
+    },
+    {
+      "entryPoint": "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\src\\trigger\\repositoryTasks.mjs",
+      "filePath": "src/trigger/repositoryTasks.ts",
+      "id": "analyze-repository-with-ai",
+      "maxDuration": 300,
+      "retry": {
+        "factor": 2,
+        "maxAttempts": 2,
+        "maxTimeoutInMs": 60000,
+        "minTimeoutInMs": 1000,
+        "randomize": true
+      }
+    },
+    {
+      "entryPoint": "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\src\\trigger\\repositoryTasks.mjs",
+      "filePath": "src/trigger/repositoryTasks.ts",
+      "id": "analyze-contribution-issues",
+      "maxDuration": 300,
+      "retry": {
+        "factor": 2,
+        "maxAttempts": 3,
+        "maxTimeoutInMs": 60000,
+        "minTimeoutInMs": 1000,
+        "randomize": true
+      }
+    },
+    {
+      "entryPoint": "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\src\\trigger\\repositoryTasks.mjs",
+      "filePath": "src/trigger/repositoryTasks.ts",
+      "id": "generate-issue-proof",
+      "maxDuration": 300,
+      "retry": {
+        "factor": 2,
+        "maxAttempts": 2,
+        "maxTimeoutInMs": 60000,
+        "minTimeoutInMs": 1000,
+        "randomize": true
+      }
+    },
+    {
+      "entryPoint": "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\src\\trigger\\repositoryTasks.mjs",
+      "filePath": "src/trigger/repositoryTasks.ts",
+      "id": "refresh-repository-data",
+      "maxDuration": 300,
+      "retry": {
+        "factor": 2,
+        "maxAttempts": 3,
+        "maxTimeoutInMs": 60000,
+        "minTimeoutInMs": 1000,
+        "randomize": true
+      }
+    }
+  ],
+  "timings": {
+    "src/trigger/repositoryTasks.ts": 3.2404999999999973
+  },
+  "webhookEndpoints": [
+  ],
+  "webhookSubscribers": [
+  ],
+  "workerEntryPoint": "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\node_modules\\trigger.dev\\dist\\esm\\entryPoints\\dev-run-worker.mjs"
+}

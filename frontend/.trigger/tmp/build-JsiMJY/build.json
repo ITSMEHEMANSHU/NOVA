@@ -1,0 +1,102 @@
+{
+  "build": {
+  },
+  "cliPackageVersion": "4.7.6",
+  "config": {
+    "dirs": [
+      "./src/trigger"
+    ],
+    "project": "proj_ojnquoglqxnkjnbyvkqg"
+  },
+  "configPath": "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\trigger.config.mjs",
+  "contentHash": "cc9a6dbb9c15bbbd2b82c6d15d5fe283",
+  "customConditions": [
+  ],
+  "deploy": {
+    "env": {
+    }
+  },
+  "environment": "dev",
+  "externals": [
+    {
+      "name": "import-in-the-middle",
+      "version": "3.5.2"
+    }
+  ],
+  "files": [
+    {
+      "entry": "src/trigger/repositoryTasks.ts",
+      "out": "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\src\\trigger\\repositoryTasks.mjs"
+    }
+  ],
+  "indexWorkerEntryPoint": "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\node_modules\\trigger.dev\\dist\\esm\\entryPoints\\dev-index-worker.mjs",
+  "otelImportHook": {
+    "include": [
+    ]
+  },
+  "outputHashes": {
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-244PAGAH.mjs": "MKUfkr/RxtE",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-244PAGAH.mjs.map": "5cjM5D5eV/w",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-62GMNPQP.mjs": "jOFoEfjxAjo",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-62GMNPQP.mjs.map": "BO5OX7ieojk",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-DHADIA3R.mjs": "4pGLJiEkng0",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-DHADIA3R.mjs.map": "5MmBxezu70A",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-EM2B7P4X.mjs": "rFyWLHeUiLs",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-EM2B7P4X.mjs.map": "tZjqbNscQl4",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-GJ2HVB4L.mjs": "TduwR38fp4E",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-GJ2HVB4L.mjs.map": "X7E90D9vTKM",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-HW3KSO2P.mjs": "hY9T61pbPec",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-HW3KSO2P.mjs.map": "2g72H11+858",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-P6CYADCN.mjs": "Lc94mZSIBGQ",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-P6CYADCN.mjs.map": "PnrD9/wgkOY",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-W6E5Q5TY.mjs": "YnG2+vSnUtc",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\chunk-W6E5Q5TY.mjs.map": "Oo2DrdbfGd8",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\crypto.node-QULMYNMD.mjs": "vrp5CXYkR2I",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\crypto.node-QULMYNMD.mjs.map": "LMPzUuAiOIM",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\esm-NUWTWICG.mjs": "UjRQPDYTd2I",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\esm-NUWTWICG.mjs.map": "VON93E1In1A",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\getMachineId-bsd-4T4IHQHS.mjs": "55YOCSt0eF8",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\getMachineId-bsd-4T4IHQHS.mjs.map": "a+ojhatqxdQ",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\getMachineId-darwin-7HJQGT4I.mjs": "79G23J6GVmQ",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\getMachineId-darwin-7HJQGT4I.mjs.map": "+IB6rybrE78",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\getMachineId-linux-Z65YT226.mjs": "2BnyXEaKbTA",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\getMachineId-linux-Z65YT226.mjs.map": "gLCTHdQ0lc4",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\getMachineId-unsupported-WGZGXDR6.mjs": "yVsGhhppy5k",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\getMachineId-unsupported-WGZGXDR6.mjs.map": "Ny6hJ0CVZTg",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\getMachineId-win-AUIVDZN5.mjs": "eHMJ8yApJ6E",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\getMachineId-win-AUIVDZN5.mjs.map": "V5cCd6OL6VU",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\node_modules\\trigger.dev\\dist\\esm\\entryPoints\\dev-index-worker.mjs": "WTt2LZ/BN/8",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\node_modules\\trigger.dev\\dist\\esm\\entryPoints\\dev-index-worker.mjs.map": "XXJBbrtgWcI",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\node_modules\\trigger.dev\\dist\\esm\\entryPoints\\dev-run-worker.mjs": "Pfw0+Q1FnWM",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\node_modules\\trigger.dev\\dist\\esm\\entryPoints\\dev-run-worker.mjs.map": "XvZXOiYi6lU",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\s2s-GJA5PZCC.mjs": "6+E0S/6hgrg",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\s2s-GJA5PZCC.mjs.map": "1vZ2qXZUoCU",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\src\\trigger\\repositoryTasks.mjs": "o+hwBP1vbdE",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\src\\trigger\\repositoryTasks.mjs.map": "dXAQWmmo9XA",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\trigger.config.mjs": "URcMTzk2bW0",
+    "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\trigger.config.mjs.map": "yRMDRzi8HT4"
+  },
+  "outputPath": "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY",
+  "packageVersion": "4.7.6",
+  "runWorkerEntryPoint": "H:\\project\\HackDayVU\\frontend\\.trigger\\tmp\\build-JsiMJY\\node_modules\\trigger.dev\\dist\\esm\\entryPoints\\dev-run-worker.mjs",
+  "runtime": "node-24",
+  "sources": {
+    "package.json": {
+      "contentHash": "db704c3a75c1d8e886f25148da5a83fb",
+      "contents": "eJx1ksGOwiAQhu99CsLZTkt1NXrysM9hUmFsyFZogFaN8d03UFpZdW/w/TPM/DPcM0Koqs9Id4SejFYOlaALTwc0VmrlhRIYlCPtjBxq58Od6TEgy43snKU7cs8IIYQKHHyWwqsj/rwY8bGXrZiF8RYl62rjZmm8RamVKihowylSZ2TToNnFUvEKAoe04hTV6kaq17gRZoQ8gguBHSqBiktMrOyTjMKKH//ICjawnkrsr7dTqy+FwZqHPg+sAlbFcRFCeWuvgVfAgM2uei4F5kkWrNkzyY/BY7aGFVQTnaPZFpbP4IBzoc/vkqtle5FK5Gc0TdjxYQkbKFPbw/c/zmMut7ZwvTnqrubB/2E1m3e3Dm2htBjfrsoXJfG3/SRNXSdy3LOHLyznWp1kk38eTtLu3yaTDb5tL7QSvm/I+QpzyR6/JwzU7g=="
+    },
+    "src/trigger/repositoryTasks.ts": {
+      "contentHash": "fc462e6a256818920d1ac8a9690c69f1",
+      "contents": "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"
+    },
+    "trigger.config.ts": {
+      "contentHash": "5be5e248ed02d74f253ecb26b5d2594e",
+      "contents": "eJxljkFPhEAMhe/8imZOmpAF5TZ70biXTfTmzRjDMoUMMO1uKQTd8N8NLGs0ntp87732+XBkUTiDw9ITPjGVvoIJSuEA5kHFVxXKxuGQdK5JhsxsowjHJeSwzPtW/0RvzhHAUbjGQi2Yefvgmk49V+1ppKamw+fQnCoTRwDSk/qAFgyxwwW1XD3jgK0F0/LF5bx0Ft7MJumkSNZG5n2WQj7uesnVM1nI0nQ5iioeOwtzEwCk/NCi29MOBwsqPcYLX8tfbcutR1UMR+0sZPGVenr1AbnXPb10Fu7Sy5c18U/7Ecu8UBYL91cgOTkO/gt/t5jmMcXRdLuNvgE6bHkQ"
+    },
+    "tsconfig.json": {
+      "contentHash": "ee17fd1c97c735e9f3564e3f5251f125",
+      "contents": "eJxtUU1Lw0AQvedXLHMMbaJehJ4E6cFiEfRYimyyQ7t2v9id1EjJf5fdJNVET8O8N2/2vdlLxhjUVjup0L84ktYEWLFLxhhjQNwfkGDFYP12d3N7D4seV7KCFduBsBoWLJZCEnpeKYw9BoMtwX6Y5krZz01cS77BAQwn6Z5l9XjE+jRjyMuappixay1nGIatFY3CJ0PorZuSOlHR+WBmgr9isKqJYeNE1Rih0I8jPpJn3ARrtuOWX5tlsIoTip6bpfoIbdzokde0jM0oMrVHjYa4mgqcag4ynXyXADacvk/NdYqQAgxwl+p4Wsfp+PNfjMFDmaefKcrg6zKHfTaKuiiJRlQj8Ppe2r1Ecy5EQWG0m+dl/re9pimiqKQvh6GcjfaUwPP/dGo1hZgmZQBsr4bAWIHverjrPuuyb0p5toA="
+    }
+  },
+  "target": "dev"
+}
