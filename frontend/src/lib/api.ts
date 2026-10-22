@@ -9,6 +9,7 @@ import {
   IssueItem,
   PaginatedIssuesResponse,
   PullRequest,
+  PaginatedPullsResponse,
   IssueAnalysisResponse,
   IssueProofAuditResult,
   GeneratedReport,
@@ -110,10 +111,29 @@ export async function getRepositoryIssues(
   return data;
 }
 
-export async function getRepositoryPulls(owner: string, repo: string): Promise<PullRequest[]> {
-  const res = await fetch(`${API_BASE_URL}/repositories/${owner}/${repo}/pulls`);
-  return handleResponse<PullRequest[]>(res);
+export async function getRepositoryPulls(
+  owner: string,
+  repo: string,
+  page: number = 1,
+  perPage: number = 20,
+  state: string = 'all'
+): Promise<PaginatedPullsResponse> {
+  const res = await fetch(`${API_BASE_URL}/repositories/${owner}/${repo}/pulls?page=${page}&per_page=${perPage}&state=${state}`);
+  const data = await handleResponse<any>(res);
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      total_count: data.length,
+      page,
+      per_page: perPage,
+      total_pages: Math.ceil(data.length / perPage) || 1,
+      has_next: false,
+      has_prev: page > 1,
+    };
+  }
+  return data;
 }
+
 
 export async function analyzeIssue(
   owner: string,

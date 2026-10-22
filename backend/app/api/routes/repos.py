@@ -4,9 +4,8 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Query
 from app.github.client import github_client, GitHubClientError
 from app.cache.redis_client import cache_service
-from app.graph.builder import graph_builder
 from app.background.orchestrator import trigger_repo_preparation
-from app.schemas.repository import RepositoryOverview, RepoSectionStatus, Contributor, PullRequest
+from app.schemas.repository import RepositoryOverview, RepoSectionStatus, Contributor, PullRequest, PaginatedPullsResponse
 from app.schemas.graph import ArchitectureGraph
 from app.schemas.issues import IssueItem, PaginatedIssuesResponse
 from app.agent.services.gemma_service import gemma_service
@@ -241,29 +240,54 @@ async def get_repository_issue(owner: str, repo: str, issue_number: int):
     except GitHubClientError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e))
 
-@router.get("/{owner}/{repo}/pulls", response_model=List[PullRequest])
-async def get_repository_pulls(owner: str, repo: str):
-    cache_key = f"pulls:{owner}:{repo}"
+@router.get("/{owner}/{repo}/pulls", response_model=PaginatedPullsResponse)
+async def get_repository_pulls(
+    owner: str, 
+    repo: str,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    state: str = Query("all", pattern="^(all|open|closed|merged)$")
+):
+    cache_key = f"pulls:{owner}:{repo}:s{state}:p{page}:l{per_page}"
     cached = await cache_service.get_json(cache_key)
     if cached:
-        return [PullRequest(**p) for p in cached]
+        return PaginatedPullsResponse(**cached)
 
     try:
-        raw_pulls = await github_client.get_pull_requests(owner, repo, per_page=15)
+        pulls_data = await github_client.get_pull_requests(
+            owner, repo, state=state, page=page, per_page=per_page
+        )
+        raw_pulls = pulls_data.get("items", [])
+        total_count = max(pulls_data.get("total_count", len(raw_pulls)), len(raw_pulls))
+
         results = []
         for p in raw_pulls:
+            merged_at = p.get("merged_at") or p.get("pull_request", {}).get("merged_at")
+            is_merged = bool(merged_at)
             results.append(PullRequest(
                 number=p["number"],
                 title=p["title"],
-                state=p.get("state", "open"),
+                state="merged" if is_merged else p.get("state", "open"),
                 html_url=p["html_url"],
                 created_at=p.get("created_at", ""),
                 user_login=p.get("user", {}).get("login", "unknown"),
                 user_avatar=p.get("user", {}).get("avatar_url", ""),
-                is_merged=bool(p.get("merged_at")),
-                merged_at=p.get("merged_at")
+                is_merged=is_merged,
+                merged_at=merged_at
             ))
-        await cache_service.set_json(cache_key, [r.model_dump() for r in results], ttl=1800)
-        return results
+
+        total_pages = max(1, math.ceil(total_count / per_page))
+        response = PaginatedPullsResponse(
+            items=results,
+            total_count=total_count,
+            page=page,
+            per_page=per_page,
+            total_pages=total_pages,
+            has_next=page < total_pages,
+            has_prev=page > 1
+        )
+        await cache_service.set_json(cache_key, response.model_dump(), ttl=1800)
+        return response
     except GitHubClientError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e))
+

@@ -53,7 +53,8 @@ async def execute_repo_preparation(owner: str, repo: str) -> Dict[str, Any]:
         # 2. Issues, Pulls & Contributors
         issues_data = await github_client.get_issues(owner, repo, per_page=25, page=1)
         issues = issues_data.get("items", [])
-        pulls = await github_client.get_pull_requests(owner, repo, per_page=15)
+        pulls_data = await github_client.get_pull_requests(owner, repo, per_page=20, page=1)
+        pulls = pulls_data.get("items", []) if isinstance(pulls_data, dict) else pulls_data
         contributors = await github_client.get_contributors(owner, repo, per_page=20)
         
         await cache_service.set_json(f"issues:{owner}:{repo}", issues, ttl=1800)

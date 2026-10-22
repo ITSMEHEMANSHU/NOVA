@@ -54,3 +54,13 @@ class PullRequest(BaseModel):
     user_avatar: str
     is_merged: bool = False
     merged_at: Optional[str] = None
+
+class PaginatedPullsResponse(BaseModel):
+    items: List[PullRequest]
+    total_count: int
+    page: int
+    per_page: int
+    total_pages: int
+    has_next: bool
+    has_prev: bool
+

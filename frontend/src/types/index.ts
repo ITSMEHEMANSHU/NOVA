@@ -141,6 +141,17 @@ export interface PullRequest {
   merged_at?: string;
 }
 
+export interface PaginatedPullsResponse {
+  items: PullRequest[];
+  total_count: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
+
+
 export interface IssueDifficultyAssessment {
   level: 'beginner' | 'intermediate' | 'advanced';
   rationale: string;

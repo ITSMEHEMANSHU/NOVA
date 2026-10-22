@@ -50,3 +50,29 @@ def test_issue_difficulty_schema():
         prerequisites=["Basic Python"]
     )
     assert diff.level == "beginner"
+
+def test_paginated_pulls_schema():
+    from app.schemas.repository import PullRequest, PaginatedPullsResponse
+    pr = PullRequest(
+        number=101,
+        title="Add tree layout",
+        state="merged",
+        html_url="https://github.com/foo/bar/pull/101",
+        created_at="2026-10-22T00:00:00Z",
+        user_login="octocat",
+        user_avatar="https://avatar.url",
+        is_merged=True
+    )
+    response = PaginatedPullsResponse(
+        items=[pr],
+        total_count=1,
+        page=1,
+        per_page=20,
+        total_pages=1,
+        has_next=False,
+        has_prev=False
+    )
+    assert response.total_count == 1
+    assert response.items[0].is_merged is True
+    assert response.total_pages == 1
+

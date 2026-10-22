@@ -190,13 +190,54 @@ class GitHubClient:
         self._validate_repo_params(owner, repo)
         return await self._request("GET", f"/repos/{owner}/{repo}/issues/{issue_number}")
 
-    async def get_pull_requests(self, owner: str, repo: str, state: str = "all", per_page: int = 20) -> List[Dict[str, Any]]:
+    async def get_pull_requests(
+        self, 
+        owner: str, 
+        repo: str, 
+        state: str = "all", 
+        page: int = 1, 
+        per_page: int = 20
+    ) -> Dict[str, Any]:
         self._validate_repo_params(owner, repo)
-        return await self._request("GET", f"/repos/{owner}/{repo}/pulls", params={
-            "state": state,
+        try:
+            state_query = ""
+            if state == "open":
+                state_query = " is:open"
+            elif state == "closed":
+                state_query = " is:closed"
+            elif state == "merged":
+                state_query = " is:merged"
+
+            search_query = f"repo:{owner}/{repo} is:pr{state_query}"
+            data = await self._request("GET", "/search/issues", params={
+                "q": search_query,
+                "sort": "updated",
+                "order": "desc",
+                "per_page": per_page,
+                "page": page
+            })
+            if isinstance(data, dict) and "items" in data:
+                return {
+                    "items": data["items"],
+                    "total_count": data.get("total_count", len(data["items"]))
+                }
+        except Exception as e:
+            logger.warning(f"Search pulls fallback: {e}")
+
+        # Fallback to standard pulls endpoint
+        gh_state = "all" if state in ("all", "merged") else state
+        data = await self._request("GET", f"/repos/{owner}/{repo}/pulls", params={
+            "state": gh_state,
             "per_page": per_page,
+            "page": page,
             "sort": "updated",
             "direction": "desc"
         })
+        items = data if isinstance(data, list) else []
+        return {
+            "items": items,
+            "total_count": len(items)
+        }
+
 
 github_client = GitHubClient()

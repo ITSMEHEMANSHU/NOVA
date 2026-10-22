@@ -21,6 +21,7 @@ import {
   PaginatedIssuesResponse,
   Contributor,
   PullRequest,
+  PaginatedPullsResponse,
 } from '@/types';
 import ArchitectureGraphView from '@/components/graph/ArchitectureGraphView';
 import IssueAnalysisModal from '@/components/issues/IssueAnalysisModal';
@@ -74,7 +75,11 @@ export default function RepoWorkspacePage({ params }: PageProps) {
   const [issuesPerPage, setIssuesPerPage] = useState<number>(25);
   const [isLoadingIssues, setIsLoadingIssues] = useState<boolean>(false);
   const [contributors, setContributors] = useState<Contributor[]>([]);
-  const [pulls, setPulls] = useState<PullRequest[]>([]);
+  const [pullsData, setPullsData] = useState<PaginatedPullsResponse | null>(null);
+  const [currentPullsPage, setCurrentPullsPage] = useState<number>(1);
+  const [pullsPerPage, setPullsPerPage] = useState<number>(20);
+  const [pullsFilter, setPullsFilter] = useState<'all' | 'open' | 'merged' | 'closed'>('all');
+  const [isLoadingPulls, setIsLoadingPulls] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Selected issue for Gemma 4 analysis
@@ -89,6 +94,10 @@ export default function RepoWorkspacePage({ params }: PageProps) {
   const issues = issuesData?.items || [];
   const totalIssuesCount = issuesData?.total_count ?? (overview?.open_issues_count || 0);
   const totalPages = issuesData?.total_pages ?? Math.max(1, Math.ceil(totalIssuesCount / issuesPerPage));
+
+  const pulls = pullsData?.items || [];
+  const totalPullsCount = pullsData?.total_count ?? 0;
+  const totalPullsPages = pullsData?.total_pages ?? Math.max(1, Math.ceil(totalPullsCount / pullsPerPage));
 
   const fetchIssues = async (page: number, perPage: number = issuesPerPage) => {
     setIsLoadingIssues(true);
@@ -134,6 +143,60 @@ export default function RepoWorkspacePage({ params }: PageProps) {
     return pages;
   };
 
+  const fetchPulls = async (
+    page: number,
+    perPage: number = pullsPerPage,
+    state: 'all' | 'open' | 'merged' | 'closed' = pullsFilter
+  ) => {
+    setIsLoadingPulls(true);
+    try {
+      const res = await getRepositoryPulls(owner, repo, page, perPage, state);
+      setPullsData(res);
+      setCurrentPullsPage(page);
+    } catch (err) {
+      console.error('Failed to fetch pulls', err);
+    } finally {
+      setIsLoadingPulls(false);
+    }
+  };
+
+  const handlePullsPageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPullsPages || newPage === currentPullsPage) return;
+    fetchPulls(newPage, pullsPerPage, pullsFilter);
+    const el = document.getElementById('pulls-list-container');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const handlePullsPerPageChange = (newPerPage: number) => {
+    if (newPerPage === pullsPerPage) return;
+    setPullsPerPage(newPerPage);
+    fetchPulls(1, newPerPage, pullsFilter);
+  };
+
+  const handlePullsFilterChange = (newFilter: 'all' | 'open' | 'merged' | 'closed') => {
+    if (newFilter === pullsFilter) return;
+    setPullsFilter(newFilter);
+    fetchPulls(1, pullsPerPage, newFilter);
+  };
+
+  const getPullsPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPullsPages <= 7) {
+      for (let i = 1; i <= totalPullsPages; i++) pages.push(i);
+    } else {
+      if (currentPullsPage <= 4) {
+        pages.push(1, 2, 3, 4, 5, '...', totalPullsPages);
+      } else if (currentPullsPage >= totalPullsPages - 3) {
+        pages.push(1, '...', totalPullsPages - 4, totalPullsPages - 3, totalPullsPages - 2, totalPullsPages - 1, totalPullsPages);
+      } else {
+        pages.push(1, '...', currentPullsPage - 1, currentPullsPage, currentPullsPage + 1, '...', totalPullsPages);
+      }
+    }
+    return pages;
+  };
+
   // Initial load & trigger preparation
   useEffect(() => {
     prepareRepository(owner, repo).catch(() => {});
@@ -161,10 +224,10 @@ export default function RepoWorkspacePage({ params }: PageProps) {
       fetchIssues(1, issuesPerPage);
     } else if (activeTab === 'contributors' && contributors.length === 0) {
       getRepositoryContributors(owner, repo).then(setContributors).catch(console.error);
-    } else if (activeTab === 'pulls' && pulls.length === 0) {
-      getRepositoryPulls(owner, repo).then(setPulls).catch(console.error);
+    } else if (activeTab === 'pulls' && !pullsData) {
+      fetchPulls(1, pullsPerPage, pullsFilter);
     }
-  }, [activeTab, owner, repo, graph, tree, issuesData, contributors.length, pulls.length, issuesPerPage]);
+  }, [activeTab, owner, repo, graph, tree, issuesData, contributors.length, pullsData, issuesPerPage, pullsPerPage, pullsFilter]);
 
   // Pre-load graph in background after overview arrives
   useEffect(() => {
@@ -905,25 +968,93 @@ export default function RepoWorkspacePage({ params }: PageProps) {
             TAB 6: PULL REQUESTS
             ======================================================== */}
         {activeTab === 'pulls' && (
-          <div className="space-y-4">
-            <div className="border-b-2 border-black pb-3">
-              <h2 className="text-lg font-black text-black uppercase tracking-tight flex items-center">
-                <GitPullRequest className="w-4 h-4 mr-1.5" />
-                Recent Pull Requests
-              </h2>
+          <div id="pulls-list-container" className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-black pb-4">
+              <div>
+                <h2 className="text-lg sm:text-xl font-black text-black uppercase tracking-tight flex items-center">
+                  <GitPullRequest className="w-5 h-5 mr-2 text-black" />
+                  Pull Requests & Code Reviews
+                </h2>
+                <p className="text-xs text-slate-700 font-sans mt-0.5">
+                  Showing {totalPullsCount > 0 ? `${(currentPullsPage - 1) * pullsPerPage + 1}-${Math.min(currentPullsPage * pullsPerPage, totalPullsCount)} of ${totalPullsCount}` : pulls.length} pull requests • Page {currentPullsPage} of {totalPullsPages}
+                </p>
+              </div>
+
+              {/* Status Filters & Per Page Toggle */}
+              <div className="flex flex-wrap items-center gap-2 text-xs font-black">
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    onClick={() => handlePullsFilterChange('all')}
+                    className={`brutal-btn px-3 py-1.5 border-2 border-black ${
+                      pullsFilter === 'all' ? 'bg-black text-white' : 'bg-white text-black hover:bg-slate-100'
+                    }`}
+                  >
+                    All ({pullsFilter === 'all' && totalPullsCount > 0 ? totalPullsCount : pulls.length})
+                  </button>
+                  <button
+                    onClick={() => handlePullsFilterChange('open')}
+                    className={`brutal-btn px-3 py-1.5 border-2 border-black ${
+                      pullsFilter === 'open' ? 'bg-[#D5F5EF] text-black ring-2 ring-black font-black' : 'bg-white text-black hover:bg-slate-100'
+                    }`}
+                  >
+                    Open
+                  </button>
+                  <button
+                    onClick={() => handlePullsFilterChange('merged')}
+                    className={`brutal-btn px-3 py-1.5 border-2 border-black ${
+                      pullsFilter === 'merged' ? 'bg-[#E0E7FF] text-black ring-2 ring-black font-black' : 'bg-white text-black hover:bg-slate-100'
+                    }`}
+                  >
+                    Merged
+                  </button>
+                  <button
+                    onClick={() => handlePullsFilterChange('closed')}
+                    className={`brutal-btn px-3 py-1.5 border-2 border-black ${
+                      pullsFilter === 'closed' ? 'bg-slate-200 text-black ring-2 ring-black font-black' : 'bg-white text-black hover:bg-slate-100'
+                    }`}
+                  >
+                    Closed
+                  </button>
+                </div>
+
+                {/* Per Page Toggle */}
+                <div className="flex items-center space-x-1 pl-2 border-l-2 border-black/30">
+                  <span className="text-[11px] text-slate-700 uppercase">Per page:</span>
+                  {[10, 20, 50].map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => handlePullsPerPageChange(size)}
+                      className={`px-2 py-1 border-2 border-black text-xs font-black transition-all ${
+                        pullsPerPage === size ? 'bg-black text-[#72C7E8]' : 'bg-white text-black hover:bg-slate-100'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
+
+            {/* Loading Indicator */}
+            {isLoadingPulls && (
+              <div className="p-3 bg-[#DCEFFD] border-2 border-black brutal-shadow-sm flex items-center justify-center space-x-2 text-xs font-black">
+                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                <span>Loading pull requests page {currentPullsPage} from GitHub API...</span>
+              </div>
+            )}
+
             {pulls.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {pulls.map((pr) => (
                   <a
                     key={pr.number}
                     href={pr.html_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="brutal-card bg-white p-3.5 hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_#000000] transition-all flex items-center justify-between group cursor-pointer"
+                    className="brutal-card bg-white p-4 hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_#000000] transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 group cursor-pointer"
                   >
-                    <div>
-                      <div className="flex items-center space-x-2 mb-1">
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                         <span className="text-xs font-black text-black">
                           #{pr.number}
                         </span>
@@ -938,21 +1069,104 @@ export default function RepoWorkspacePage({ params }: PageProps) {
                         >
                           {pr.is_merged ? 'merged' : pr.state}
                         </span>
+                        <h4 className="text-sm font-black text-black group-hover:text-[#0284c7] transition-colors">
+                          {pr.title}
+                        </h4>
                       </div>
-                      <h4 className="text-xs font-black text-black group-hover:text-[#0284c7] transition-colors">
-                        {pr.title}
-                      </h4>
+                      <div className="text-xs text-slate-600 font-sans">
+                        Opened on {new Date(pr.created_at).toLocaleDateString()}
+                        {pr.merged_at && ` • Merged on ${new Date(pr.merged_at).toLocaleDateString()}`}
+                      </div>
                     </div>
-                    <div className="text-right text-xs font-bold text-slate-600">
-                      by @{pr.user_login}
+
+                    <div className="flex items-center space-x-3 shrink-0">
+                      <div className="flex items-center space-x-2">
+                        {pr.user_avatar && (
+                          <img
+                            src={pr.user_avatar}
+                            alt={pr.user_login}
+                            className="w-5 h-5 rounded-full border border-black"
+                          />
+                        )}
+                        <span className="text-xs font-bold text-slate-700">@{pr.user_login}</span>
+                      </div>
+                      <ExternalLink className="w-4 h-4 text-black group-hover:text-[#0284c7] transition-colors" />
                     </div>
                   </a>
                 ))}
+
+                {/* Neo-brutalist Pagination Bar for Pull Requests */}
+                {totalPullsPages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t-2 border-black">
+                    <div className="text-xs font-bold text-black">
+                      Showing Page <strong className="font-black">{currentPullsPage}</strong> of{' '}
+                      <strong className="font-black">{totalPullsPages}</strong> ({totalPullsCount} total pull requests)
+                    </div>
+
+                    <div className="flex items-center space-x-1.5 text-xs font-black">
+                      <button
+                        onClick={() => handlePullsPageChange(currentPullsPage - 1)}
+                        disabled={currentPullsPage === 1 || isLoadingPulls}
+                        className="brutal-btn px-3 py-1.5 bg-white border-2 border-black brutal-shadow-sm hover:bg-[#D5F5EF] disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1"
+                        title="Previous Page"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Prev</span>
+                      </button>
+
+                      <div className="flex items-center space-x-1">
+                        {getPullsPageNumbers().map((p, idx) => {
+                          if (p === '...') {
+                            return (
+                              <span key={`pulls-dots-${idx}`} className="px-2 py-1 text-black font-bold">
+                                ...
+                              </span>
+                            );
+                          }
+                          const pageNum = p as number;
+                          const isCurrent = pageNum === currentPullsPage;
+                          return (
+                            <button
+                              key={`pulls-p-${pageNum}`}
+                              onClick={() => handlePullsPageChange(pageNum)}
+                              disabled={isLoadingPulls}
+                              className={`brutal-btn min-w-[32px] h-[32px] px-2 text-xs font-black border-2 border-black brutal-shadow-sm transition-all ${
+                                isCurrent
+                                  ? 'bg-black text-[#72C7E8]'
+                                  : 'bg-white text-black hover:bg-[#DCEFFD]'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        onClick={() => handlePullsPageChange(currentPullsPage + 1)}
+                        disabled={currentPullsPage >= totalPullsPages || isLoadingPulls}
+                        className="brutal-btn px-3 py-1.5 bg-white border-2 border-black brutal-shadow-sm hover:bg-[#D5F5EF] disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1"
+                        title="Next Page"
+                      >
+                        <span className="hidden sm:inline">Next</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : !isLoadingPulls ? (
+              <div className="py-16 text-center brutal-card bg-white p-8">
+                <GitPullRequest className="w-8 h-8 text-black/50 mx-auto mb-2" />
+                <h3 className="text-sm font-black text-black uppercase">No Pull Requests Found</h3>
+                <p className="text-xs text-slate-600 font-sans mt-1">
+                  No pull requests matching filter &quot;{pullsFilter}&quot;.
+                </p>
               </div>
             ) : (
               <div className="py-20 text-center brutal-card bg-white">
                 <div className="w-8 h-8 border-3 border-black border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-xs font-bold text-black uppercase">Loading pull requests...</p>
+                <p className="text-xs font-bold text-black uppercase">Fetching pull requests...</p>
               </div>
             )}
           </div>

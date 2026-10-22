@@ -229,14 +229,17 @@ export const refreshRepositoryDataTask = task({
       fetch(`${API_BASE}/repositories/${owner}/${repo}/pulls`),
     ]);
 
-    const issues = issuesRes.ok ? await issuesRes.json() : [];
-    const pulls = pullsRes.ok ? await pullsRes.json() : [];
+    const issuesData = issuesRes.ok ? await issuesRes.json() : [];
+    const pullsData = pullsRes.ok ? await pullsRes.json() : [];
 
-    logger.info(`Refreshed ${issues.length} issues and ${pulls.length} pull requests`);
+    const issueCount = Array.isArray(issuesData) ? issuesData.length : (issuesData.total_count ?? issuesData.items?.length ?? 0);
+    const pullCount = Array.isArray(pullsData) ? pullsData.length : (pullsData.total_count ?? pullsData.items?.length ?? 0);
+
+    logger.info(`Refreshed ${issueCount} issues and ${pullCount} pull requests`);
     return {
       refreshed: true,
-      issueCount: issues.length,
-      pullCount: pulls.length,
+      issueCount,
+      pullCount,
       timestamp: new Date().toISOString(),
     };
   },
