@@ -7,6 +7,7 @@ import {
   ArchitectureGraph,
   Contributor,
   IssueItem,
+  PaginatedIssuesResponse,
   PullRequest,
   IssueAnalysisResponse,
   IssueProofAuditResult,
@@ -87,9 +88,26 @@ export async function getRepositoryContributors(owner: string, repo: string): Pr
   return handleResponse<Contributor[]>(res);
 }
 
-export async function getRepositoryIssues(owner: string, repo: string): Promise<IssueItem[]> {
-  const res = await fetch(`${API_BASE_URL}/repositories/${owner}/${repo}/issues`);
-  return handleResponse<IssueItem[]>(res);
+export async function getRepositoryIssues(
+  owner: string,
+  repo: string,
+  page: number = 1,
+  perPage: number = 25
+): Promise<PaginatedIssuesResponse> {
+  const res = await fetch(`${API_BASE_URL}/repositories/${owner}/${repo}/issues?page=${page}&per_page=${perPage}`);
+  const data = await handleResponse<any>(res);
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      total_count: data.length,
+      page,
+      per_page: perPage,
+      total_pages: Math.ceil(data.length / perPage) || 1,
+      has_next: false,
+      has_prev: page > 1,
+    };
+  }
+  return data;
 }
 
 export async function getRepositoryPulls(owner: string, repo: string): Promise<PullRequest[]> {

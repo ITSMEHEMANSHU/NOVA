@@ -26,3 +26,12 @@ class IssueItem(BaseModel):
     is_help_wanted: bool = False
     difficulty: Optional[IssueDifficultyAssessment] = None
     linked_module: Optional[str] = None
+
+class PaginatedIssuesResponse(BaseModel):
+    items: List[IssueItem]
+    total_count: int
+    page: int
+    per_page: int
+    total_pages: int
+    has_next: bool
+    has_prev: bool

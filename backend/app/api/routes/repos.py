@@ -1,4 +1,5 @@
 import logging
+import math
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Query
 from app.github.client import github_client, GitHubClientError
@@ -7,7 +8,7 @@ from app.graph.builder import graph_builder
 from app.background.orchestrator import trigger_repo_preparation
 from app.schemas.repository import RepositoryOverview, RepoSectionStatus, Contributor, PullRequest
 from app.schemas.graph import ArchitectureGraph
-from app.schemas.issues import IssueItem
+from app.schemas.issues import IssueItem, PaginatedIssuesResponse
 from app.agent.services.gemma_service import gemma_service
 
 logger = logging.getLogger("oss_compass.repos")
@@ -143,15 +144,23 @@ async def get_repository_contributors(owner: str, repo: str):
     except GitHubClientError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e))
 
-@router.get("/{owner}/{repo}/issues", response_model=List[IssueItem])
-async def get_repository_issues(owner: str, repo: str):
-    cache_key = f"issues:{owner}:{repo}"
+@router.get("/{owner}/{repo}/issues", response_model=PaginatedIssuesResponse)
+async def get_repository_issues(
+    owner: str, 
+    repo: str,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(25, ge=1, le=100)
+):
+    cache_key = f"issues:{owner}:{repo}:p{page}:l{per_page}"
     cached = await cache_service.get_json(cache_key)
     if cached:
-        return [IssueItem(**i) for i in cached]
+        return PaginatedIssuesResponse(**cached)
 
     try:
-        raw_issues = await github_client.get_issues(owner, repo, per_page=25)
+        issues_data = await github_client.get_issues(owner, repo, page=page, per_page=per_page)
+        raw_issues = issues_data.get("items", [])
+        total_count = issues_data.get("total_count", len(raw_issues))
+
         results = []
         for item in raw_issues:
             labels = [l["name"] for l in item.get("labels", []) if isinstance(l, dict)]
@@ -182,8 +191,19 @@ async def get_repository_issues(owner: str, repo: str):
                 is_help_wanted=is_hw,
                 difficulty=difficulty
             ))
-        await cache_service.set_json(cache_key, [r.model_dump() for r in results], ttl=1800)
-        return results
+
+        total_pages = max(1, math.ceil(total_count / per_page))
+        response = PaginatedIssuesResponse(
+            items=results,
+            total_count=total_count,
+            page=page,
+            per_page=per_page,
+            total_pages=total_pages,
+            has_next=page < total_pages,
+            has_prev=page > 1
+        )
+        await cache_service.set_json(cache_key, response.model_dump(), ttl=1800)
+        return response
     except GitHubClientError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e))
 

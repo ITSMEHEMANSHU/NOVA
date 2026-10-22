@@ -169,6 +169,16 @@ export interface IssueItem {
   linked_module?: string;
 }
 
+export interface PaginatedIssuesResponse {
+  items: IssueItem[];
+  total_count: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
+
 export interface PrerequisiteItem {
   concept: string;
   why_needed: string;

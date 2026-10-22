@@ -63,10 +63,10 @@ export default function HomePage() {
     try {
       const [ov, iss] = await Promise.all([
         getRepositoryOverview(owner, repo).catch(() => null),
-        getRepositoryIssues(owner, repo).catch(() => []),
+        getRepositoryIssues(owner, repo).catch(() => null),
       ]);
       if (ov) setHeroOverview(ov);
-      if (iss) setHeroIssues(iss);
+      if (iss) setHeroIssues(Array.isArray(iss) ? iss : (iss.items || []));
     } catch (e) {
       console.warn('Hero preview fetch error:', e);
     } finally {

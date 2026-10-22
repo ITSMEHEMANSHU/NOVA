@@ -51,7 +51,8 @@ async def execute_repo_preparation(owner: str, repo: str) -> Dict[str, Any]:
         await cache_service.set_json(f"overview:{owner}:{repo}", overview_data, ttl=3600)
         
         # 2. Issues, Pulls & Contributors
-        issues = await github_client.get_issues(owner, repo, per_page=20)
+        issues_data = await github_client.get_issues(owner, repo, per_page=25, page=1)
+        issues = issues_data.get("items", [])
         pulls = await github_client.get_pull_requests(owner, repo, per_page=15)
         contributors = await github_client.get_contributors(owner, repo, per_page=20)
         

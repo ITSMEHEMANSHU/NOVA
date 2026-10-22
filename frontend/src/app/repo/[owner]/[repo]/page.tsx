@@ -18,6 +18,7 @@ import {
   ArchitectureGraph,
   RepositoryTreeResponse,
   IssueItem,
+  PaginatedIssuesResponse,
   Contributor,
   PullRequest,
 } from '@/types';
@@ -40,6 +41,7 @@ import {
   GitPullRequest,
   ShieldAlert,
   ChevronRight,
+  ChevronLeft,
   Activity,
   Layers,
   Terminal,
@@ -65,7 +67,10 @@ export default function RepoWorkspacePage({ params }: PageProps) {
   const [status, setStatus] = useState<RepoSectionStatus | null>(null);
   const [graph, setGraph] = useState<ArchitectureGraph | null>(null);
   const [tree, setTree] = useState<RepositoryTreeResponse | null>(null);
-  const [issues, setIssues] = useState<IssueItem[]>([]);
+  const [issuesData, setIssuesData] = useState<PaginatedIssuesResponse | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [issuesPerPage, setIssuesPerPage] = useState<number>(25);
+  const [isLoadingIssues, setIsLoadingIssues] = useState<boolean>(false);
   const [contributors, setContributors] = useState<Contributor[]>([]);
   const [pulls, setPulls] = useState<PullRequest[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -75,6 +80,54 @@ export default function RepoWorkspacePage({ params }: PageProps) {
 
   // Filter state for issues
   const [issueFilter, setIssueFilter] = useState<'all' | 'gfi' | 'beginner' | 'intermediate'>('all');
+
+  const issues = issuesData?.items || [];
+  const totalIssuesCount = issuesData?.total_count ?? (overview?.open_issues_count || 0);
+  const totalPages = issuesData?.total_pages ?? Math.max(1, Math.ceil(totalIssuesCount / issuesPerPage));
+
+  const fetchIssues = async (page: number, perPage: number = issuesPerPage) => {
+    setIsLoadingIssues(true);
+    try {
+      const res = await getRepositoryIssues(owner, repo, page, perPage);
+      setIssuesData(res);
+      setCurrentPage(page);
+    } catch (err) {
+      console.error('Failed to fetch issues', err);
+    } finally {
+      setIsLoadingIssues(false);
+    }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+    fetchIssues(newPage, issuesPerPage);
+    const el = document.getElementById('issues-list-container');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const handlePerPageChange = (newPerPage: number) => {
+    if (newPerPage === issuesPerPage) return;
+    setIssuesPerPage(newPerPage);
+    fetchIssues(1, newPerPage);
+  };
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 4) {
+        pages.push(1, 2, 3, 4, 5, '...', totalPages);
+      } else if (currentPage >= totalPages - 3) {
+        pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      }
+    }
+    return pages;
+  };
 
   // Initial load & trigger preparation
   useEffect(() => {
@@ -99,14 +152,14 @@ export default function RepoWorkspacePage({ params }: PageProps) {
       getRepositoryGraph(owner, repo).then(setGraph).catch(console.error);
     } else if (activeTab === 'tree' && !tree) {
       getRepositoryTree(owner, repo).then(setTree).catch(console.error);
-    } else if (activeTab === 'issues' && issues.length === 0) {
-      getRepositoryIssues(owner, repo).then(setIssues).catch(console.error);
+    } else if (activeTab === 'issues' && !issuesData) {
+      fetchIssues(1, issuesPerPage);
     } else if (activeTab === 'contributors' && contributors.length === 0) {
       getRepositoryContributors(owner, repo).then(setContributors).catch(console.error);
     } else if (activeTab === 'pulls' && pulls.length === 0) {
       getRepositoryPulls(owner, repo).then(setPulls).catch(console.error);
     }
-  }, [activeTab, owner, repo, graph, tree, issues.length, contributors.length, pulls.length]);
+  }, [activeTab, owner, repo, graph, tree, issuesData, contributors.length, pulls.length, issuesPerPage]);
 
   // Pre-load graph in background after overview arrives
   useEffect(() => {
@@ -123,12 +176,13 @@ export default function RepoWorkspacePage({ params }: PageProps) {
         getRepositoryOverview(owner, repo),
         getRepositoryGraph(owner, repo),
         getRepositoryTree(owner, repo),
-        getRepositoryIssues(owner, repo),
+        getRepositoryIssues(owner, repo, 1, issuesPerPage),
       ]);
       setOverview(ov);
       setGraph(gr);
       setTree(tr);
-      setIssues(is);
+      setIssuesData(is);
+      setCurrentPage(1);
     } catch (e) {
       console.error('Refresh error', e);
     } finally {
@@ -225,7 +279,7 @@ export default function RepoWorkspacePage({ params }: PageProps) {
             {[
               { id: 'overview', label: '01. Overview', icon: BookOpen },
               { id: 'graph', label: '02. Architecture Graph', icon: Network },
-              { id: 'issues', label: '03. Issues & AI Plans', icon: AlertCircle, count: overview?.open_issues_count },
+              { id: 'issues', label: '03. Issues & AI Plans', icon: AlertCircle, count: totalIssuesCount || overview?.open_issues_count },
               { id: 'tree', label: '04. File Structure', icon: FolderTree },
               { id: 'contributors', label: '05. Contributors', icon: Users },
               { id: 'pulls', label: '06. Pull Requests', icon: GitPullRequest },
@@ -455,7 +509,7 @@ export default function RepoWorkspacePage({ params }: PageProps) {
             TAB 3: ISSUES & GEMMA 4 PLANS
             ======================================================== */}
         {activeTab === 'issues' && (
-          <div className="space-y-6">
+          <div id="issues-list-container" className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-black pb-4">
               <div>
                 <h2 className="text-lg sm:text-xl font-black text-black uppercase tracking-tight flex items-center">
@@ -463,38 +517,64 @@ export default function RepoWorkspacePage({ params }: PageProps) {
                   Issues & Gemma 4 Guided Plans
                 </h2>
                 <p className="text-xs text-slate-700 font-sans mt-0.5">
-                  Showing {filteredIssues.length} {overview?.open_issues_count ? `of ${overview.open_issues_count} open issues` : 'issues'}. Select an issue to inspect maintainer discussions and AI guided plans.
+                  Showing {totalIssuesCount > 0 ? `${(currentPage - 1) * issuesPerPage + 1}-${Math.min(currentPage * issuesPerPage, totalIssuesCount)} of ${totalIssuesCount}` : issues.length} open issues • Page {currentPage} of {totalPages}
                 </p>
               </div>
 
-              {/* Filters */}
-              <div className="flex items-center space-x-2 text-xs font-black">
-                <button
-                  onClick={() => setIssueFilter('all')}
-                  className={`brutal-btn px-3 py-1.5 border-2 border-black ${
-                    issueFilter === 'all' ? 'bg-black text-white' : 'bg-white text-black hover:bg-slate-100'
-                  }`}
-                >
-                  All ({issues.length}{overview?.open_issues_count && overview.open_issues_count > issues.length ? ` of ${overview.open_issues_count}` : ''})
-                </button>
-                <button
-                  onClick={() => setIssueFilter('gfi')}
-                  className={`brutal-btn px-3 py-1.5 border-2 border-black ${
-                    issueFilter === 'gfi' ? 'bg-[#D5F5EF] text-black' : 'bg-white text-black hover:bg-slate-100'
-                  }`}
-                >
-                  Good First Issues
-                </button>
-                <button
-                  onClick={() => setIssueFilter('beginner')}
-                  className={`brutal-btn px-3 py-1.5 border-2 border-black ${
-                    issueFilter === 'beginner' ? 'bg-[#DCEFFD] text-black' : 'bg-white text-black hover:bg-slate-100'
-                  }`}
-                >
-                  Beginner Friendly
-                </button>
+              {/* Filters & Per Page Toggle */}
+              <div className="flex flex-wrap items-center gap-2 text-xs font-black">
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    onClick={() => setIssueFilter('all')}
+                    className={`brutal-btn px-3 py-1.5 border-2 border-black ${
+                      issueFilter === 'all' ? 'bg-black text-white' : 'bg-white text-black hover:bg-slate-100'
+                    }`}
+                  >
+                    All ({issues.length})
+                  </button>
+                  <button
+                    onClick={() => setIssueFilter('gfi')}
+                    className={`brutal-btn px-3 py-1.5 border-2 border-black ${
+                      issueFilter === 'gfi' ? 'bg-[#D5F5EF] text-black' : 'bg-white text-black hover:bg-slate-100'
+                    }`}
+                  >
+                    Good First Issues
+                  </button>
+                  <button
+                    onClick={() => setIssueFilter('beginner')}
+                    className={`brutal-btn px-3 py-1.5 border-2 border-black ${
+                      issueFilter === 'beginner' ? 'bg-[#DCEFFD] text-black' : 'bg-white text-black hover:bg-slate-100'
+                    }`}
+                  >
+                    Beginner Friendly
+                  </button>
+                </div>
+
+                {/* Per Page Toggle */}
+                <div className="flex items-center space-x-1 pl-2 border-l-2 border-black/30">
+                  <span className="text-[11px] text-slate-700 uppercase">Per page:</span>
+                  {[25, 50].map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => handlePerPageChange(size)}
+                      className={`px-2 py-1 border-2 border-black text-xs font-black transition-all ${
+                        issuesPerPage === size ? 'bg-black text-[#72C7E8]' : 'bg-white text-black hover:bg-slate-100'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
+
+            {/* Loading Indicator */}
+            {isLoadingIssues && (
+              <div className="p-3 bg-[#D5F5EF] border-2 border-black brutal-shadow-sm flex items-center justify-center space-x-2 text-xs font-black">
+                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                <span>Loading page {currentPage} from GitHub API...</span>
+              </div>
+            )}
 
             {/* Issues List */}
             {issues.length > 0 ? (
@@ -568,6 +648,66 @@ export default function RepoWorkspacePage({ params }: PageProps) {
                     </div>
                   </div>
                 ))}
+
+                {/* Neo-brutalist Pagination Bar */}
+                {totalPages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t-2 border-black">
+                    <div className="text-xs font-bold text-black">
+                      Showing Page <strong className="font-black">{currentPage}</strong> of{' '}
+                      <strong className="font-black">{totalPages}</strong> ({totalIssuesCount} total issues)
+                    </div>
+
+                    <div className="flex items-center space-x-1.5 text-xs font-black">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1 || isLoadingIssues}
+                        className="brutal-btn px-3 py-1.5 bg-white border-2 border-black brutal-shadow-sm hover:bg-[#D5F5EF] disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1"
+                        title="Previous Page"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Prev</span>
+                      </button>
+
+                      <div className="flex items-center space-x-1">
+                        {getPageNumbers().map((p, idx) => {
+                          if (p === '...') {
+                            return (
+                              <span key={`dots-${idx}`} className="px-2 py-1 text-black font-bold">
+                                ...
+                              </span>
+                            );
+                          }
+                          const pageNum = p as number;
+                          const isCurrent = pageNum === currentPage;
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => handlePageChange(pageNum)}
+                              disabled={isLoadingIssues}
+                              className={`brutal-btn min-w-[32px] h-[32px] px-2 text-xs font-black border-2 border-black brutal-shadow-sm transition-all ${
+                                isCurrent
+                                  ? 'bg-black text-[#72C7E8]'
+                                  : 'bg-white text-black hover:bg-[#DCEFFD]'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage >= totalPages || isLoadingIssues}
+                        className="brutal-btn px-3 py-1.5 bg-white border-2 border-black brutal-shadow-sm hover:bg-[#D5F5EF] disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1"
+                        title="Next Page"
+                      >
+                        <span className="hidden sm:inline">Next</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="py-20 text-center brutal-card bg-white">

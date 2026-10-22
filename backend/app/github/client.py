@@ -134,7 +134,14 @@ class GitHubClient:
                 return []
             raise
 
-    async def get_issues(self, owner: str, repo: str, state: str = "open", per_page: int = 30) -> List[Dict[str, Any]]:
+    async def get_issues(
+        self, 
+        owner: str, 
+        repo: str, 
+        state: str = "open", 
+        page: int = 1, 
+        per_page: int = 25
+    ) -> Dict[str, Any]:
         self._validate_repo_params(owner, repo)
         try:
             # Query /search/issues with is:issue to filter out PRs server-side
@@ -143,21 +150,30 @@ class GitHubClient:
                 "q": search_query,
                 "sort": "updated",
                 "order": "desc",
-                "per_page": per_page
+                "per_page": per_page,
+                "page": page
             })
             if isinstance(data, dict) and "items" in data:
-                return data["items"]
+                return {
+                    "items": data["items"],
+                    "total_count": data.get("total_count", len(data["items"]))
+                }
         except Exception as e:
             logger.warning(f"Search issues fallback: {e}")
 
         # Fallback to standard issues endpoint
         data = await self._request("GET", f"/repos/{owner}/{repo}/issues", params={
             "state": state,
-            "per_page": min(100, per_page * 2),
+            "per_page": per_page,
+            "page": page,
             "sort": "updated",
             "direction": "desc"
         })
-        return [item for item in data if "pull_request" not in item][:per_page]
+        filtered = [item for item in data if "pull_request" not in item]
+        return {
+            "items": filtered,
+            "total_count": len(filtered)
+        }
 
     async def get_pure_issues_count(self, owner: str, repo: str) -> Optional[int]:
         self._validate_repo_params(owner, repo)
