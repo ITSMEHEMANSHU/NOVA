@@ -81,9 +81,7 @@ class GitHubClient:
 
     async def get_contributing_guide(self, owner: str, repo: str) -> Optional[str]:
         self._validate_repo_params(owner, repo)
-        # Check standard paths: CONTRIBUTING.md, .github/CONTRIBUTING.md, docs/CONTRIBUTING.md
-        candidate_paths = ["CONTRIBUTING.md", ".github/CONTRIBUTING.md", "docs/CONTRIBUTING.md", "contributing.md"]
-        for path in candidate_paths:
+        for path in ["CONTRIBUTING.md", ".github/CONTRIBUTING.md"]:
             try:
                 content = await self.get_file_content(owner, repo, path)
                 if content:
@@ -138,15 +136,39 @@ class GitHubClient:
 
     async def get_issues(self, owner: str, repo: str, state: str = "open", per_page: int = 30) -> List[Dict[str, Any]]:
         self._validate_repo_params(owner, repo)
-        # Note: GitHub API includes PRs in /issues unless filtered
+        try:
+            # Query /search/issues with is:issue to filter out PRs server-side
+            search_query = f"repo:{owner}/{repo} is:issue is:{state}"
+            data = await self._request("GET", "/search/issues", params={
+                "q": search_query,
+                "sort": "updated",
+                "order": "desc",
+                "per_page": per_page
+            })
+            if isinstance(data, dict) and "items" in data:
+                return data["items"]
+        except Exception as e:
+            logger.warning(f"Search issues fallback: {e}")
+
+        # Fallback to standard issues endpoint
         data = await self._request("GET", f"/repos/{owner}/{repo}/issues", params={
             "state": state,
-            "per_page": per_page,
+            "per_page": min(100, per_page * 2),
             "sort": "updated",
             "direction": "desc"
         })
-        # Filter out pull requests
-        return [item for item in data if "pull_request" not in item]
+        return [item for item in data if "pull_request" not in item][:per_page]
+
+    async def get_pure_issues_count(self, owner: str, repo: str) -> Optional[int]:
+        self._validate_repo_params(owner, repo)
+        try:
+            search_query = f"repo:{owner}/{repo} is:issue is:open"
+            data = await self._request("GET", "/search/issues", params={"q": search_query, "per_page": 1})
+            if isinstance(data, dict) and "total_count" in data:
+                return data["total_count"]
+        except Exception as e:
+            logger.warning(f"Failed to query pure issues count: {e}")
+        return None
 
     async def get_issue(self, owner: str, repo: str, issue_number: int) -> Dict[str, Any]:
         self._validate_repo_params(owner, repo)

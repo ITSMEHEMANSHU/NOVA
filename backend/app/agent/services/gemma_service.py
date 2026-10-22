@@ -97,20 +97,25 @@ Return a valid JSON object matching this exact schema:
 """
 
         if client:
-            try:
-                response = client.models.generate_content(
-                    model=settings.GEMINI_MODEL,
-                    contents=[SYSTEM_INSTRUCTION_GUARDRAIL, prompt],
-                    config={"response_mime_type": "application/json"}
-                )
-                parsed = json.loads(response.text)
-                return IssueAnalysisResponse(
-                    issue_number=issue_number,
-                    model_used=f"{settings.GEMINI_MODEL} (Google GenAI)",
-                    **parsed
-                )
-            except Exception as e:
-                logger.warning(f"Gemma 4 generation failed: {e}. Falling back to structured heuristic analysis.")
+            candidate_models = [settings.GEMINI_MODEL]
+            if settings.GEMINI_MODEL != "gemini-2.5-flash":
+                candidate_models.append("gemini-2.5-flash")
+
+            for m in candidate_models:
+                try:
+                    response = client.models.generate_content(
+                        model=m,
+                        contents=[SYSTEM_INSTRUCTION_GUARDRAIL, prompt],
+                        config={"response_mime_type": "application/json"}
+                    )
+                    parsed = json.loads(response.text)
+                    return IssueAnalysisResponse(
+                        issue_number=issue_number,
+                        model_used=f"{m} (Google GenAI)",
+                        **parsed
+                    )
+                except Exception as e:
+                    logger.warning(f"Generation with {m} failed: {e}. Trying fallback...")
 
         # Grounded heuristic fallback
         return IssueAnalysisResponse(

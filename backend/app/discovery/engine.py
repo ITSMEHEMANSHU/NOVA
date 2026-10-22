@@ -22,29 +22,23 @@ class DiscoveryEngine:
         
         # Languages filter
         if prefs.languages:
-            # e.g., language:python language:typescript (GitHub search matches any)
-            lang_filters = [f"language:{lang.lower()}" for lang in prefs.languages[:3]]
+            lang_filters = [f"language:{lang.lower()}" for lang in prefs.languages[:2]]
             query_parts.append(" ".join(lang_filters))
         
-        # Interests / Topics
-        if prefs.interests:
-            topic_filters = [f"topic:{topic.lower().replace(' ', '-')}" for topic in prefs.interests[:2]]
-            query_parts.append(" ".join(topic_filters))
+        # Primary interest / topic (only 1 to avoid over-constraining AND queries)
+        if prefs.interests and len(prefs.interests) > 0:
+            query_parts.append(f"topic:{prefs.interests[0].lower().replace(' ', '-')}")
             
         # Stars bounds based on experience level
         if prefs.experience_level == "beginner":
-            query_parts.append("stars:15..15000")
+            query_parts.append("stars:15..30000")
         elif prefs.experience_level == "intermediate":
-            query_parts.append("stars:50..50000")
+            query_parts.append("stars:50..60000")
         else:
             query_parts.append("stars:>200")
             
         # Ensure repo is active and not archived
         query_parts.append("archived:false")
-        
-        # Good first issue or help wanted tag if beginner
-        if prefs.experience_level == "beginner":
-            query_parts.append("good-first-issues:>0")
 
         return " ".join(query_parts) if query_parts else "stars:>100 archived:false"
 
@@ -145,9 +139,20 @@ class DiscoveryEngine:
             raw_res = await github_client.search_repositories(query=query, sort="updated", order="desc", per_page=12)
         except Exception as e:
             logger.warning(f"Targeted search failed: {e}. Executing fallback popular search.")
-            raw_res = await github_client.search_repositories(query="stars:>500 archived:false", sort="stars", order="desc", per_page=12)
+            raw_res = {}
 
         items = raw_res.get("items", [])
+
+        # If zero items found with specific topic filters, gracefully broaden by language & stars
+        if not items and prefs.languages:
+            lang = prefs.languages[0].lower()
+            broad_query = f"language:{lang} stars:>50 archived:false"
+            logger.info(f"Targeted query yielded 0 items. Broadening discovery query to: '{broad_query}'")
+            try:
+                raw_res = await github_client.search_repositories(query=broad_query, sort="stars", order="desc", per_page=12)
+                items = raw_res.get("items", [])
+            except Exception as e:
+                logger.error(f"Broadened search failed: {e}")
         ranked_results: List[RepoSearchResult] = []
 
         for item in items:

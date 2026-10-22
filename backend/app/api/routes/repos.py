@@ -41,6 +41,8 @@ async def get_repository_overview(owner: str, repo: str):
         readme = await github_client.get_readme(owner, repo)
         contributing = await github_client.get_contributing_guide(owner, repo)
         languages = await github_client.get_languages(owner, repo)
+        pure_issues_count = await github_client.get_pure_issues_count(owner, repo)
+        actual_issues_count = pure_issues_count if pure_issues_count is not None else meta.get("open_issues_count", 0)
 
         overview = RepositoryOverview(
             name=meta.get("name", repo),
@@ -50,7 +52,7 @@ async def get_repository_overview(owner: str, repo: str):
             html_url=meta.get("html_url", f"https://github.com/{owner}/{repo}"),
             stars_count=meta.get("stargazers_count", 0),
             forks_count=meta.get("forks_count", 0),
-            open_issues_count=meta.get("open_issues_count", 0),
+            open_issues_count=actual_issues_count,
             license=meta.get("license", {}).get("spdx_id") if meta.get("license") else None,
             default_branch=meta.get("default_branch", "main"),
             readme_markdown=readme,
@@ -101,9 +103,13 @@ async def get_repository_tree(owner: str, repo: str, branch: Optional[str] = Non
         raise HTTPException(status_code=e.status_code, detail=str(e))
 
 @router.get("/{owner}/{repo}/graph", response_model=ArchitectureGraph)
-async def get_repository_graph(owner: str, repo: str, branch: Optional[str] = "main"):
+async def get_repository_graph(owner: str, repo: str, branch: Optional[str] = None):
     try:
-        return await graph_builder.build_graph(owner, repo, branch=branch or "main")
+        b = branch
+        if not b:
+            meta = await github_client.get_repository(owner, repo)
+            b = meta.get("default_branch", "main")
+        return await graph_builder.build_graph(owner, repo, branch=b)
     except GitHubClientError as e:
         raise HTTPException(status_code=e.status_code, detail=str(e))
     except Exception as e:

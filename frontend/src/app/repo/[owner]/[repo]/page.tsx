@@ -463,7 +463,7 @@ export default function RepoWorkspacePage({ params }: PageProps) {
                   Issues & Gemma 4 Guided Plans
                 </h2>
                 <p className="text-xs text-slate-700 font-sans mt-0.5">
-                  Select an issue to inspect maintainer discussions, prerequisite skills, and Gemma 4 preparation plans.
+                  Showing {filteredIssues.length} {overview?.open_issues_count ? `of ${overview.open_issues_count} open issues` : 'issues'}. Select an issue to inspect maintainer discussions and AI guided plans.
                 </p>
               </div>
 
@@ -475,7 +475,7 @@ export default function RepoWorkspacePage({ params }: PageProps) {
                     issueFilter === 'all' ? 'bg-black text-white' : 'bg-white text-black hover:bg-slate-100'
                   }`}
                 >
-                  All ({issues.length})
+                  All ({issues.length}{overview?.open_issues_count && overview.open_issues_count > issues.length ? ` of ${overview.open_issues_count}` : ''})
                 </button>
                 <button
                   onClick={() => setIssueFilter('gfi')}

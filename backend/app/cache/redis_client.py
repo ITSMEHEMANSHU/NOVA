@@ -30,8 +30,9 @@ class CacheService:
                 settings.REDIS_URL,
                 ssl_cert_reqs="none" if is_ssl else None,
                 decode_responses=True,
-                socket_timeout=10.0,
-                socket_connect_timeout=15.0
+                socket_timeout=1.5,
+                socket_connect_timeout=10.0,
+                health_check_interval=30
             )
             # Test ping
             await self._redis.ping()
