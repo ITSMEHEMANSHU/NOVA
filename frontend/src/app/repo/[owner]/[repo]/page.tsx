@@ -48,6 +48,8 @@ import {
   CheckCircle2,
   RefreshCw,
   Cpu,
+  Search,
+  Folder,
 } from 'lucide-react';
 
 interface PageProps {
@@ -80,6 +82,9 @@ export default function RepoWorkspacePage({ params }: PageProps) {
 
   // Filter state for issues
   const [issueFilter, setIssueFilter] = useState<'all' | 'gfi' | 'beginner' | 'intermediate'>('all');
+
+  // Search filter for repository file tree
+  const [fileSearchQuery, setFileSearchQuery] = useState('');
 
   const issues = issuesData?.items || [];
   const totalIssuesCount = issuesData?.total_count ?? (overview?.open_issues_count || 0);
@@ -719,43 +724,112 @@ export default function RepoWorkspacePage({ params }: PageProps) {
         )}
 
         {/* ========================================================
-            TAB 4: FILE TREE
+            TAB 4: FILE TREE (HIERARCHICAL INDENTATION)
             ======================================================== */}
         {activeTab === 'tree' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b-2 border-black pb-3">
-              <h2 className="text-lg font-black text-black uppercase tracking-tight flex items-center">
-                <FolderTree className="w-4 h-4 mr-1.5" />
-                Repository File Hierarchy
-              </h2>
-              <span className="text-xs font-bold text-slate-600">
-                {tree ? `${tree.files.length} Files Discovered` : 'Scanning...'}
-              </span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-black pb-3">
+              <div>
+                <h2 className="text-lg font-black text-black uppercase tracking-tight flex items-center">
+                  <FolderTree className="w-4 h-4 mr-1.5" />
+                  Repository File Hierarchy
+                </h2>
+                <span className="text-xs font-bold text-slate-600">
+                  {tree ? `${tree.total_files || tree.files.length} Files Discovered (Branch: ${tree.branch})` : 'Scanning git tree...'}
+                </span>
+              </div>
+
+              {tree && (
+                <div className="flex items-center space-x-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Filter files (e.g. .cpp, test)..."
+                      value={fileSearchQuery}
+                      onChange={(e) => setFileSearchQuery(e.target.value)}
+                      className="pl-8 pr-3 py-1.5 bg-white border-2 border-black text-xs font-mono brutal-shadow-sm focus:outline-none min-w-[220px]"
+                    />
+                  </div>
+                  {fileSearchQuery && (
+                    <button
+                      onClick={() => setFileSearchQuery('')}
+                      className="brutal-btn px-2.5 py-1.5 bg-white border-2 border-black text-xs font-bold"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {tree ? (
-              <div className="brutal-card bg-white p-5 max-h-[600px] overflow-y-auto space-y-1.5 text-xs">
-                {tree.files.map((file, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between py-1.5 px-3 hover:bg-[#D5F5EF] text-black font-bold transition-colors border-b border-black/5"
-                  >
-                    <div className="flex items-center space-x-2 truncate">
-                      {file.type === 'directory' ? (
-                        <FolderTree className="w-3.5 h-3.5 text-black shrink-0" />
-                      ) : (
-                        <FileCode className="w-3.5 h-3.5 text-[#0284c7] shrink-0" />
-                      )}
-                      <span className="truncate">{file.path}</span>
-                    </div>
+              <div className="brutal-card bg-white p-5 max-h-[650px] overflow-y-auto space-y-0.5 text-xs">
+                {(() => {
+                  const filtered = tree.files.filter((f) =>
+                    !fileSearchQuery || f.path.toLowerCase().includes(fileSearchQuery.toLowerCase())
+                  );
 
-                    {file.size && (
-                      <span className="text-[10px] text-slate-600 shrink-0 ml-3">
-                        {(file.size / 1024).toFixed(1)} KB
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="py-12 text-center text-xs font-bold text-slate-600">
+                        No files matched &ldquo;{fileSearchQuery}&rdquo;
+                      </div>
+                    );
+                  }
+
+                  return filtered.map((file, idx) => {
+                    const parts = file.path.split('/');
+                    const depth = fileSearchQuery ? 0 : parts.length - 1;
+                    const displayName = file.name || parts[parts.length - 1];
+                    const isDir = file.type === 'directory';
+
+                    return (
+                      <div
+                        key={idx}
+                        style={{ paddingLeft: `${depth * 20 + 8}px` }}
+                        className={`flex items-center justify-between py-1.5 pr-3 hover:bg-[#D5F5EF] transition-colors border-b border-black/5 group ${
+                          isDir ? 'bg-slate-50/70 font-black text-black' : 'text-slate-800 font-medium'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2 truncate">
+                          {/* Tree guide connector */}
+                          {depth > 0 && !fileSearchQuery && (
+                            <span className="text-slate-400 font-mono select-none text-[11px] shrink-0">
+                              └─
+                            </span>
+                          )}
+
+                          {isDir ? (
+                            <Folder className="w-3.5 h-3.5 text-black shrink-0 fill-[#DCEFFD]" />
+                          ) : (
+                            <FileCode className="w-3.5 h-3.5 text-[#0284c7] shrink-0" />
+                          )}
+
+                          <span className={`truncate ${isDir ? 'font-black text-black' : 'font-mono text-black font-semibold'}`}>
+                            {fileSearchQuery ? file.path : displayName}
+                          </span>
+
+                          {!fileSearchQuery && depth > 0 && (
+                            <span className="text-[10px] text-slate-400 font-mono hidden lg:inline truncate">
+                              ({file.path})
+                            </span>
+                          )}
+                        </div>
+
+                        {file.size ? (
+                          <span className="text-[10px] text-slate-600 font-mono shrink-0 ml-3">
+                            {(file.size / 1024).toFixed(1)} KB
+                          </span>
+                        ) : isDir ? (
+                          <span className="text-[10px] text-slate-400 font-mono uppercase shrink-0 ml-3">
+                            dir
+                          </span>
+                        ) : null}
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             ) : (
               <div className="py-20 text-center brutal-card bg-white">

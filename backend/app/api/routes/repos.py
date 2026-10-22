@@ -97,7 +97,7 @@ async def get_repository_tree(owner: str, repo: str, branch: Optional[str] = Non
                 "size": item.get("size")
             })
 
-        result = {"branch": b, "total_files": len(file_tree), "files": file_tree[:300]}
+        result = {"branch": b, "total_files": len(file_tree), "files": file_tree[:800]}
         await cache_service.set_json(cache_key, result, ttl=1800)
         return result
     except GitHubClientError as e:
