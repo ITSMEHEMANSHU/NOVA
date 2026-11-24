@@ -148,3 +148,5 @@ HackDayVU/
 - **Untrusted External Data**: All READMEs, issue bodies, and commit messages fetched from GitHub are treated strictly as untrusted data strings.
 - **Zero Hallucination Guarantee**: The application never invents repository files, line numbers, or test outcomes. Unverified inferences are explicitly marked as hypotheses.
 - **Backend-Only Secrets**: All tokens (`GEMINI_API_KEY`, `GITHUB_TOKEN`, `REDIS_URL`) remain exclusively on the FastAPI backend and are never exposed to the client bundle.
+
+- Y22STK 
